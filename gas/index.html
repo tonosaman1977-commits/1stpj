@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>研究発信変換エンジン</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <style>
+    body { background-color: #f8f9fa; }
+    .output-text { white-space: pre-wrap; word-break: break-word; min-height: 4rem; }
+  </style>
+</head>
+<body>
+<div class="container py-4" style="max-width: 800px;">
+
+  <h1 class="h3 mb-1">研究発信変換エンジン</h1>
+  <p class="text-muted mb-4">論文テキストをWeb掲載用・SNS用・やさしい日本語に自動変換</p>
+
+  <!-- 入力エリア -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <ul class="nav nav-tabs mb-3" id="inputTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="textTab" data-bs-toggle="tab"
+                  data-bs-target="#textPane" data-tab="text" type="button" role="tab">
+            テキスト入力
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="pdfTab" data-bs-toggle="tab"
+                  data-bs-target="#pdfPane" data-tab="pdf" type="button" role="tab">
+            PDFアップロード
+          </button>
+        </li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="textPane" role="tabpanel">
+          <textarea id="sourceText" class="form-control" rows="8"
+            placeholder="論文テキストをここに貼り付けてください（10文字以上、50,000文字以内）"></textarea>
+        </div>
+        <div class="tab-pane fade" id="pdfPane" role="tabpanel">
+          <input type="file" id="pdfFile" accept=".pdf" class="form-control mb-2">
+          <p class="text-muted small mb-0">PDFファイル（最大10MB）</p>
+          <div id="pdfError" class="text-danger small mt-1 d-none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 詳細オプション -->
+  <div class="card mb-3">
+    <div class="card-header p-2">
+      <button class="btn btn-link p-0 text-decoration-none text-dark fw-normal"
+              data-bs-toggle="collapse" data-bs-target="#optionsCollapse" type="button">
+        詳細オプション（任意）
+      </button>
+    </div>
+    <div class="collapse" id="optionsCollapse">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small">想定読者</label>
+            <input type="text" id="audience" class="form-control form-control-sm"
+                   placeholder="例: 受験生、企業、一般">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">目標アクション</label>
+            <input type="text" id="goal" class="form-control form-control-sm"
+                   placeholder="例: 詳細ページ閲覧">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">禁止事項</label>
+            <input type="text" id="constraints" class="form-control form-control-sm"
+                   placeholder="例: 誇張禁止">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">必須キーワード（カンマ区切り）</label>
+            <input type="text" id="keywords" class="form-control form-control-sm"
+                   placeholder="例: AI, 自然言語処理">
+          </div>
+          <div class="col-12">
+            <label class="form-label small">関連URL</label>
+            <input type="url" id="links" class="form-control form-control-sm"
+                   placeholder="https://...">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- エラー表示 -->
+  <div id="errorAlert" class="alert alert-danger d-none mb-3" role="alert"></div>
+
+  <!-- 生成ボタン -->
+  <button id="generateBtn" class="btn btn-primary btn-lg w-100 mb-4" type="button">
+    <span id="btnText">変換する</span>
+    <span id="btnSpinner" class="spinner-border spinner-border-sm ms-2 d-none"
+          role="status" aria-hidden="true"></span>
+  </button>
+
+  <!-- 出力エリア -->
+  <div id="outputSection" class="d-none">
+
+    <!-- 出力タブ -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <ul class="nav nav-tabs mb-3" id="outputTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab"
+                    data-bs-target="#webPane" type="button" role="tab">Web掲載用</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab"
+                    data-bs-target="#snsPane" type="button" role="tab">SNS投稿用</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab"
+                    data-bs-target="#easyPane" type="button" role="tab">やさしい日本語</button>
+          </li>
+        </ul>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="webPane" role="tabpanel">
+            <p id="webBody" class="output-text border rounded p-3 bg-light mb-2"></p>
+            <button id="copyWebBtn" class="btn btn-outline-secondary btn-sm" type="button">コピー</button>
+          </div>
+          <div class="tab-pane fade" id="snsPane" role="tabpanel">
+            <p id="snsBody" class="output-text border rounded p-3 bg-light mb-2"></p>
+            <button id="copySnsBtn" class="btn btn-outline-secondary btn-sm" type="button">コピー</button>
+          </div>
+          <div class="tab-pane fade" id="easyPane" role="tabpanel">
+            <p id="easyBody" class="output-text border rounded p-3 bg-light mb-2"></p>
+            <button id="copyEasyBtn" class="btn btn-outline-secondary btn-sm" type="button">コピー</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 共通メタ -->
+    <div class="card mb-3">
+      <div class="card-header p-2">
+        <button class="btn btn-link p-0 text-decoration-none text-dark fw-normal"
+                data-bs-toggle="collapse" data-bs-target="#metaCollapse" type="button">
+          共通メタ情報
+        </button>
+      </div>
+      <div class="collapse show" id="metaCollapse">
+        <div class="card-body py-2">
+          <div class="mb-1"><small class="text-muted">タイトル</small><br>
+            <span id="metaTitle"></span></div>
+          <div class="mb-1"><small class="text-muted">一文要約</small><br>
+            <span id="metaOneLiner"></span></div>
+          <div><small class="text-muted">ハッシュタグ</small><br>
+            <span id="metaTags" class="text-primary"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 注意事項 -->
+    <div id="cautionsSection" class="alert alert-warning d-none" role="alert">
+      <strong>注意:</strong> <span id="cautionsText"></span>
+    </div>
+
+  </div><!-- /outputSection -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('generateBtn').addEventListener('click', handleGenerate);
+  document.getElementById('pdfFile').addEventListener('change', validatePdf);
+});
+
+function validatePdf() {
+  var file  = document.getElementById('pdfFile').files[0];
+  var errEl = document.getElementById('pdfError');
+  if (file && file.size > 10 * 1024 * 1024) {
+    errEl.textContent = 'PDFは10MB以下にしてください';
+    errEl.classList.remove('d-none');
+    document.getElementById('pdfFile').value = '';
+  } else {
+    errEl.classList.add('d-none');
+  }
+}
+
+function getOptions() {
+  return {
+    audience:    document.getElementById('audience').value.trim(),
+    goal:        document.getElementById('goal').value.trim(),
+    constraints: document.getElementById('constraints').value.trim(),
+    keywords:    document.getElementById('keywords').value.trim(),
+    links:       document.getElementById('links').value.trim()
+  };
+}
+
+function handleGenerate() {
+  hideError();
+  var activeTab = document.querySelector('#inputTab .nav-link.active').dataset.tab;
+  var payload   = { options: getOptions() };
+
+  if (activeTab === 'text') {
+    var text = document.getElementById('sourceText').value.trim();
+    if (text.length < 10)    { showError('10文字以上のテキストを入力してください'); return; }
+    if (text.length > 50000) { showError('テキストは50,000文字以内にしてください'); return; }
+    payload.sourceText = text;
+    sendToGAS(payload);
+  } else {
+    var file = document.getElementById('pdfFile').files[0];
+    if (!file) { showError('PDFファイルを選択してください'); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      payload.pdfBase64 = e.target.result.split(',')[1];
+      sendToGAS(payload);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function sendToGAS(payload) {
+  setLoading(true);
+  google.script.run
+    .withSuccessHandler(function (res) { setLoading(false); displayResults(res); })
+    .withFailureHandler(function (err) { setLoading(false); showError(err.message || String(err)); })
+    .processResearch(payload);
+}
+
+function displayResults(res) {
+  if (!res.success) { showError(res.error); return; }
+  var d = res.data;
+
+  document.getElementById('webBody').textContent  = d.web.body;
+  document.getElementById('snsBody').textContent  = d.sns.body;
+  document.getElementById('easyBody').textContent = d.easy.body;
+
+  document.getElementById('metaTitle').textContent   = d.title;
+  document.getElementById('metaOneLiner').textContent = d.oneLiner;
+  document.getElementById('metaTags').textContent    = (d.tags || []).join(' ');
+
+  setupCopy('copyWebBtn',  d.web.body);
+  setupCopy('copySnsBtn',  d.sns.body);
+  setupCopy('copyEasyBtn', d.easy.body);
+
+  var cautionsSec = document.getElementById('cautionsSection');
+  if (d.cautions) {
+    document.getElementById('cautionsText').textContent = d.cautions;
+    cautionsSec.classList.remove('d-none');
+  } else {
+    cautionsSec.classList.add('d-none');
+  }
+
+  document.getElementById('outputSection').classList.remove('d-none');
+  document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function setupCopy(btnId, text) {
+  var oldBtn = document.getElementById(btnId);
+  var newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  newBtn.addEventListener('click', function () {
+    navigator.clipboard.writeText(text);
+    newBtn.textContent = 'コピー済み ✓';
+    setTimeout(function () { newBtn.textContent = 'コピー'; }, 2000);
+  });
+}
+
+function setLoading(on) {
+  document.getElementById('generateBtn').disabled = on;
+  document.getElementById('btnText').textContent  = on ? '処理中...' : '変換する';
+  document.getElementById('btnSpinner').classList.toggle('d-none', !on);
+}
+
+function showError(msg) {
+  var el = document.getElementById('errorAlert');
+  el.textContent = 'エラー: ' + msg;
+  el.classList.remove('d-none');
+}
+
+function hideError() {
+  document.getElementById('errorAlert').classList.add('d-none');
+}
+</script>
+</body>
+</html>

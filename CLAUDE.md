@@ -81,3 +81,23 @@
 - 現在: 15 RPM・1,000 RPD（2026年3月時点）
 - GAS HtmlService のサンドボックスは IFRAMEモード一択（NATIVE/EMULATED廃止済み）
 - デプロイ履歴上限200個（超えたら古いものを削除）
+
+## CI/CD設定
+
+### GitHub Actions（PR時に自動実行）
+| チェック | 対象 | コマンド |
+|---------|------|---------|
+| TypeScript | frontend | `npx tsc --noEmit` |
+| Lint (JS/TS) | frontend | `npm run lint` |
+| Build | frontend | `npm run build` |
+| Lint (Python) | backend | `flake8 --max-line-length=120` |
+| Format (Python) | backend | `black --check --line-length=120` |
+
+### ブランチ戦略
+- `main`: 本番環境
+- `develop`: 開発統合ブランチ
+- `feature/*`: 機能開発ブランチ
+
+### リポジトリ
+- URL: https://github.com/tonosaman1977-commits/1stpj
+- 公開設定: Private

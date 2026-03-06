@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .section-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .section-label { font-size: 0.8rem; font-weight: 600; color: #6c757d; text-transform: uppercase; margin-bottom: 0.4rem; }
+    .section-text { white-space: pre-wrap; word-break: break-word; }
+    .title-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+    .title-item:last-child { border-bottom: none; }
+    #errorArea { display: none; }
+    #resultArea { display: none; }
+    #charCount { font-size: 0.8rem; color: #6c757d; }
+    #charCount.text-danger { color: #dc3545 !important; }
+  </style>
+</head>
+<body>
+  <div class="container py-4" style="max-width: 800px;">
+    <h1 class="h4 mb-1">研究プレスリリース生成エンジン</h1>
+    <p class="text-muted mb-4" style="font-size:0.9rem;">研究概要を入力するだけで、プレスリリース用の6セクションを自動生成します。</p>
+
+    <!-- 入力フォーム -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <label for="researchText" class="form-label fw-semibold">研究概要 <span class="text-danger">*</span></label>
+        <textarea id="researchText" class="form-control" rows="6" placeholder="研究の背景・方法・結果・意義などを入力してください（50〜20,000字）"></textarea>
+        <div class="d-flex justify-content-between mt-1">
+          <div id="validationMsg" class="text-danger" style="font-size:0.85rem;"></div>
+          <div id="charCount">0 / 20,000字</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 詳細設定（折りたたみ） -->
+    <div class="mb-3">
+      <a class="text-decoration-none text-secondary" data-bs-toggle="collapse" href="#detailSettings" role="button" aria-expanded="false">
+        ▶ 詳細設定（任意）
+      </a>
+      <div class="collapse mt-2" id="detailSettings">
+        <div class="card card-body">
+          <div class="mb-3">
+            <label for="organizationName" class="form-label">研究機関名</label>
+            <input type="text" id="organizationName" class="form-control" placeholder="例: ○○大学">
+          </div>
+          <div class="mb-3">
+            <label for="researcherName" class="form-label">研究者名・研究室名</label>
+            <input type="text" id="researcherName" class="form-control" placeholder="例: 山田太郎 准教授">
+          </div>
+          <div class="mb-3">
+            <label for="targetAudience" class="form-label">想定読者</label>
+            <select id="targetAudience" class="form-select">
+              <option value="">選択しない</option>
+              <option value="一般">一般</option>
+              <option value="報道関係者">報道関係者</option>
+              <option value="企業">企業</option>
+              <option value="教育関係者">教育関係者</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="keywords" class="form-label">含めたいキーワード</label>
+            <input type="text" id="keywords" class="form-control" placeholder="例: AI、環境問題、省エネ">
+          </div>
+          <div class="mb-0">
+            <label for="constraints" class="form-label">避けたい表現・注意事項</label>
+            <textarea id="constraints" class="form-control" rows="2" placeholder="例: 「革命的」「世界初」などの誇張表現を使わない"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 生成ボタン -->
+    <button id="generateBtn" class="btn btn-primary w-100 mb-4">生成する</button>
+
+    <!-- エラー表示 -->
+    <div id="errorArea" class="alert alert-danger" role="alert">
+      <div id="errorMsg"></div>
+      <button id="retryBtn" class="btn btn-outline-danger btn-sm mt-2">再試行</button>
+    </div>
+
+    <!-- 結果表示 -->
+    <div id="resultArea">
+      <h2 class="h5 mb-3">生成結果</h2>
+
+      <!-- タイトル3案 -->
+      <div class="section-card">
+        <div class="section-label">タイトル（3案）</div>
+        <div id="titlesResult"></div>
+      </div>
+
+      <!-- リード文 -->
+      <div class="section-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="section-label mb-0">リード文</div>
+          <button class="btn btn-outline-secondary btn-sm copy-btn" data-target="leadResult">コピー</button>
+        </div>
+        <div id="leadResult" class="section-text"></div>
+      </div>
+
+      <!-- 背景 -->
+      <div class="section-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="section-label mb-0">研究の背景</div>
+          <button class="btn btn-outline-secondary btn-sm copy-btn" data-target="backgroundResult">コピー</button>
+        </div>
+        <div id="backgroundResult" class="section-text"></div>
+      </div>
+
+      <!-- 概要 -->
+      <div class="section-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="section-label mb-0">研究内容の概要</div>
+          <button class="btn btn-outline-secondary btn-sm copy-btn" data-target="overviewResult">コピー</button>
+        </div>
+        <div id="overviewResult" class="section-text"></div>
+      </div>
+
+      <!-- 意義 -->
+      <div class="section-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="section-label mb-0">社会的意義・期待される活用</div>
+          <button class="btn btn-outline-secondary btn-sm copy-btn" data-target="significanceResult">コピー</button>
+        </div>
+        <div id="significanceResult" class="section-text"></div>
+      </div>
+
+      <!-- 注意書き（表示は条件付き） -->
+      <div id="notesCard" class="section-card" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="section-label mb-0">注意書き</div>
+          <button class="btn btn-outline-secondary btn-sm copy-btn" data-target="notesResult">コピー</button>
+        </div>
+        <div id="notesResult" class="section-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    var generateBtn = document.getElementById('generateBtn');
+    var researchText = document.getElementById('researchText');
+    var charCount = document.getElementById('charCount');
+    var validationMsg = document.getElementById('validationMsg');
+    var errorArea = document.getElementById('errorArea');
+    var errorMsg = document.getElementById('errorMsg');
+    var resultArea = document.getElementById('resultArea');
+
+    // 文字数カウント
+    researchText.addEventListener('input', function() {
+      var len = researchText.value.length;
+      charCount.textContent = len.toLocaleString() + ' / 20,000字';
+      charCount.classList.toggle('text-danger', len > 20000);
+      validationMsg.textContent = '';
+    });
+
+    // 生成ボタン
+    generateBtn.addEventListener('click', function() {
+      var text = researchText.value.trim();
+      if (text.length < 50) {
+        validationMsg.textContent = '研究概要は50字以上入力してください。（現在: ' + text.length + '字）';
+        researchText.focus();
+        return;
+      }
+      if (text.length > 20000) {
+        validationMsg.textContent = '研究概要は20,000字以内で入力してください。';
+        researchText.focus();
+        return;
+      }
+      validationMsg.textContent = '';
+      startGeneration();
+    });
+
+    // 再試行ボタン
+    document.getElementById('retryBtn').addEventListener('click', function() {
+      errorArea.style.display = 'none';
+      startGeneration();
+    });
+
+    // コピーボタン（各セクション）
+    document.querySelectorAll('.copy-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetId = btn.getAttribute('data-target');
+        var text = document.getElementById(targetId).textContent;
+        navigator.clipboard.writeText(text);
+        var original = btn.textContent;
+        btn.textContent = 'コピー済み';
+        setTimeout(function() { btn.textContent = original; }, 1500);
+      });
+    });
+
+    // タイトルコピーはdelegationで処理（動的生成のため）
+    document.getElementById('titlesResult').addEventListener('click', function(e) {
+      if (e.target.classList.contains('title-copy-btn')) {
+        var text = e.target.closest('.title-item').querySelector('.title-text').textContent;
+        navigator.clipboard.writeText(text);
+        var original = e.target.textContent;
+        e.target.textContent = 'コピー済み';
+        setTimeout(function() { e.target.textContent = original; }, 1500);
+      }
+    });
+
+    function startGeneration() {
+      var params = {
+        researchText: researchText.value.trim(),
+        organizationName: document.getElementById('organizationName').value.trim(),
+        researcherName: document.getElementById('researcherName').value.trim(),
+        targetAudience: document.getElementById('targetAudience').value,
+        keywords: document.getElementById('keywords').value.trim(),
+        constraints: document.getElementById('constraints').value.trim()
+      };
+
+      setLoading(true);
+      resultArea.style.display = 'none';
+      errorArea.style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .generatePressRelease(params);
+    }
+
+    function onSuccess(data) {
+      setLoading(false);
+
+      // タイトル3案
+      var titlesHtml = '';
+      (data.titles || []).forEach(function(title) {
+        titlesHtml += '<div class="title-item">'
+          + '<span class="title-text">' + escapeHtml(title) + '</span>'
+          + '<button class="btn btn-outline-secondary btn-sm title-copy-btn flex-shrink-0">コピー</button>'
+          + '</div>';
+      });
+      document.getElementById('titlesResult').innerHTML = titlesHtml;
+
+      document.getElementById('leadResult').textContent = data.lead || '';
+      document.getElementById('backgroundResult').textContent = data.background || '';
+      document.getElementById('overviewResult').textContent = data.overview || '';
+      document.getElementById('significanceResult').textContent = data.significance || '';
+
+      var notesCard = document.getElementById('notesCard');
+      if (data.notes) {
+        document.getElementById('notesResult').textContent = data.notes;
+        notesCard.style.display = 'block';
+      } else {
+        notesCard.style.display = 'none';
+      }
+
+      resultArea.style.display = 'block';
+      resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function onFailure(err) {
+      setLoading(false);
+      errorMsg.textContent = err.message || '生成中にエラーが発生しました。';
+      errorArea.style.display = 'block';
+    }
+
+    function setLoading(loading) {
+      generateBtn.disabled = loading;
+      generateBtn.innerHTML = loading
+        ? '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>生成中...'
+        : '生成する';
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

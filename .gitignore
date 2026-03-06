@@ -36,3 +36,9 @@ test-results/
 # Coverage
 coverage/
 .coverage
+
+# Claude Code local settings
+.claude/
+
+# AppGenius temp files
+.appgenius_temp/

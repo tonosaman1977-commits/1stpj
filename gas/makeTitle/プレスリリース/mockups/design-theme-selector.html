@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threads自動投稿 - デザインテーマ選択</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 24px; }
+  h1 { text-align: center; margin-bottom: 8px; font-size: 24px; color: #1a1a2e; }
+  p { text-align: center; color: #666; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 1100px; margin: 0 auto; }
+  .card { border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); background: #fff; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .card-label { text-align: center; padding: 12px; font-weight: bold; font-size: 16px; border-top: 1px solid #eee; color: #333; }
+  .card-sub { text-align: center; padding: 0 12px 16px; font-size: 13px; color: #888; }
+
+  /* --- Theme 1: Dark Tech --- */
+  .t1 { background: #0d1117; }
+  .t1 .header { background: linear-gradient(135deg, #0d1117 0%, #161b22 100%); padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #30363d; }
+  .t1 .logo { width: 32px; height: 32px; background: linear-gradient(135deg, #58a6ff, #1f6feb); border-radius: 8px; }
+  .t1 .logo-text { color: #58a6ff; font-weight: bold; font-size: 14px; }
+  .t1 .body { display: flex; min-height: 200px; }
+  .t1 .sidebar { width: 60px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 20px; }
+  .t1 .icon { width: 24px; height: 24px; background: #30363d; border-radius: 6px; }
+  .t1 .icon.active { background: #1f6feb; }
+  .t1 .content { flex: 1; padding: 16px; }
+  .t1 .stat-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .t1 .stat { flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
+  .t1 .stat-num { color: #58a6ff; font-size: 18px; font-weight: bold; }
+  .t1 .stat-label { color: #8b949e; font-size: 10px; }
+  .t1 .post-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
+  .t1 .post-tag { display: inline-block; background: #1f6feb22; color: #58a6ff; font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
+  .t1 .post-text { color: #c9d1d9; font-size: 11px; line-height: 1.5; }
+  .t1 .card-label { background: #0d1117; color: #58a6ff; border-top-color: #30363d; }
+  .t1 .card-sub { background: #0d1117; color: #8b949e; }
+
+  /* --- Theme 2: Minimal White --- */
+  .t2 .header { background: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #000; }
+  .t2 .logo { width: 28px; height: 28px; background: #000; border-radius: 50%; }
+  .t2 .logo-text { color: #000; font-weight: 900; font-size: 14px; letter-spacing: -0.5px; }
+  .t2 .body { display: flex; min-height: 200px; }
+  .t2 .sidebar { width: 140px; background: #fafafa; border-right: 1px solid #e5e5e5; padding: 12px; }
+  .t2 .menu-item { padding: 8px 10px; border-radius: 6px; font-size: 11px; color: #666; margin-bottom: 2px; }
+  .t2 .menu-item.active { background: #000; color: #fff; font-weight: bold; }
+  .t2 .content { flex: 1; padding: 16px; background: #fff; }
+  .t2 .title { font-size: 16px; font-weight: 900; color: #000; margin-bottom: 12px; }
+  .t2 .stat-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .t2 .stat { flex: 1; border: 2px solid #000; border-radius: 8px; padding: 10px; }
+  .t2 .stat-num { font-size: 20px; font-weight: 900; color: #000; }
+  .t2 .stat-label { font-size: 10px; color: #666; }
+  .t2 .post-card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; }
+  .t2 .post-text { font-size: 11px; color: #333; line-height: 1.5; }
+  .t2 .badge { display: inline-block; background: #000; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 3px; margin-bottom: 6px; }
+
+  /* --- Theme 3: Warm Gradient --- */
+  .t3 .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #fda085 100%); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .t3 .logo { width: 30px; height: 30px; background: rgba(255,255,255,0.3); border-radius: 50%; border: 2px solid #fff; }
+  .t3 .logo-text { color: #fff; font-weight: bold; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .t3 .body { display: flex; min-height: 200px; background: #fff9f9; }
+  .t3 .sidebar { width: 130px; background: #fff; padding: 12px; box-shadow: 2px 0 8px rgba(0,0,0,0.05); }
+  .t3 .menu-item { padding: 8px 10px; border-radius: 20px; font-size: 11px; color: #999; margin-bottom: 4px; }
+  .t3 .menu-item.active { background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff; font-weight: bold; }
+  .t3 .content { flex: 1; padding: 16px; }
+  .t3 .stat-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .t3 .stat { flex: 1; background: #fff; border-radius: 12px; padding: 10px; box-shadow: 0 2px 8px rgba(245,87,108,0.1); }
+  .t3 .stat-num { font-size: 18px; font-weight: bold; background: linear-gradient(135deg, #f5576c, #fda085); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .t3 .stat-label { font-size: 10px; color: #ccc; }
+  .t3 .post-card { background: #fff; border-radius: 12px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .t3 .post-text { font-size: 11px; color: #555; line-height: 1.5; }
+  .t3 .tag { display: inline-block; background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
+
+  /* --- Theme 4: Ocean Blue --- */
+  .t4 .header { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .t4 .logo { width: 30px; height: 30px; background: linear-gradient(135deg, #40c4ff, #00b0ff); border-radius: 8px; }
+  .t4 .logo-text { color: #fff; font-weight: bold; font-size: 14px; }
+  .t4 .body { display: flex; min-height: 200px; background: #e8eaf6; }
+  .t4 .sidebar { width: 130px; background: #1a237e; padding: 12px; }
+  .t4 .menu-item { padding: 8px 10px; border-radius: 8px; font-size: 11px; color: #9fa8da; margin-bottom: 4px; }
+  .t4 .menu-item.active { background: rgba(64,196,255,0.2); color: #40c4ff; font-weight: bold; border-left: 3px solid #40c4ff; }
+  .t4 .content { flex: 1; padding: 16px; }
+  .t4 .stat-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .t4 .stat { flex: 1; background: #fff; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(26,35,126,0.08); }
+  .t4 .stat-num { font-size: 18px; font-weight: bold; color: #1a237e; }
+  .t4 .stat-label { font-size: 10px; color: #9fa8da; }
+  .t4 .post-card { background: #fff; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(26,35,126,0.08); }
+  .t4 .post-text { font-size: 11px; color: #37474f; line-height: 1.5; }
+  .t4 .chip { display: inline-block; background: #e8eaf6; color: #1a237e; font-size: 9px; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; font-weight: bold; }
+
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>デザインテーマを選んでください</h1>
+<p>気に入ったテーマの番号（1〜4）を Claude に教えてください</p>
+<div class="grid">
+
+  <!-- Theme 1 -->
+  <div class="card">
+    <div class="t1">
+      <div class="header">
+        <div class="logo"></div>
+        <span class="logo-text">ThreadsBot</span>
+      </div>
+      <div class="body">
+        <div class="sidebar">
+          <div class="icon active"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+        </div>
+        <div class="content">
+          <div class="stat-row">
+            <div class="stat"><div class="stat-num">35</div><div class="stat-label">今日の投稿</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">スケジュール</div></div>
+          </div>
+          <div class="post-card">
+            <span class="post-tag">AIテック</span>
+            <div class="post-text">最新のAI技術が私たちの働き方を根本から変えつつある。今日も新しいツールが登場し…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">1. Dark Tech</div>
+    <div class="card-sub">黒背景・青アクセント。クール・プロフェッショナルな印象</div>
+  </div>
+
+  <!-- Theme 2 -->
+  <div class="card">
+    <div class="t2">
+      <div class="header">
+        <div class="logo"></div>
+        <span class="logo-text">ThreadsBot</span>
+      </div>
+      <div class="body">
+        <div class="sidebar">
+          <div class="menu-item active">ダッシュボード</div>
+          <div class="menu-item">テーマ管理</div>
+          <div class="menu-item">スケジュール</div>
+          <div class="menu-item">履歴</div>
+        </div>
+        <div class="content">
+          <div class="title">ダッシュボード</div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-num">35</div><div class="stat-label">今日の投稿</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">次回まで</div></div>
+          </div>
+          <div class="post-card">
+            <span class="badge">AIテック</span>
+            <div class="post-text">最新のAI技術が私たちの働き方を根本から変えつつある。今日も新しいツールが…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">2. Minimal White</div>
+    <div class="card-sub">白黒ミニマル。シンプル・スッキリした印象</div>
+  </div>
+
+  <!-- Theme 3 -->
+  <div class="card">
+    <div class="t3">
+      <div class="header">
+        <div class="logo"></div>
+        <span class="logo-text">ThreadsBot</span>
+      </div>
+      <div class="body">
+        <div class="sidebar">
+          <div class="menu-item active">ダッシュボード</div>
+          <div class="menu-item">テーマ管理</div>
+          <div class="menu-item">スケジュール</div>
+          <div class="menu-item">履歴</div>
+        </div>
+        <div class="content">
+          <div class="stat-row">
+            <div class="stat"><div class="stat-num">35</div><div class="stat-label">今日の投稿</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">スケジュール</div></div>
+          </div>
+          <div class="post-card">
+            <span class="tag">AIテック</span>
+            <div class="post-text">最新のAI技術が私たちの働き方を根本から変えつつある。今日も新しいツールが登場し…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">3. Warm Gradient</div>
+    <div class="card-sub">ピンク〜オレンジグラデーション。華やか・SNSらしい印象</div>
+  </div>
+
+  <!-- Theme 4 -->
+  <div class="card">
+    <div class="t4">
+      <div class="header">
+        <div class="logo"></div>
+        <span class="logo-text">ThreadsBot</span>
+      </div>
+      <div class="body">
+        <div class="sidebar">
+          <div class="menu-item active">ダッシュボード</div>
+          <div class="menu-item">テーマ管理</div>
+          <div class="menu-item">スケジュール</div>
+          <div class="menu-item">履歴</div>
+        </div>
+        <div class="content">
+          <div class="stat-row">
+            <div class="stat"><div class="stat-num">35</div><div class="stat-label">今日の投稿</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">スケジュール</div></div>
+          </div>
+          <div class="post-card">
+            <span class="chip">AIテック</span>
+            <div class="post-text">最新のAI技術が私たちの働き方を根本から変えつつある。今日も新しいツールが登場し…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">4. Ocean Blue</div>
+    <div class="card-sub">ネイビー×水色。信頼感・落ち着いた印象</div>
+  </div>
+
+</div>
+</body>
+</html>

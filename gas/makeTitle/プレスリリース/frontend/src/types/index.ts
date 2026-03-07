@@ -34,3 +34,24 @@ export interface PostHistory {
   status: 'success' | 'failed';
   errorMessage?: string;
 }
+
+export const API_PATHS = {
+  AUTH: {
+    LOGIN: '/api/auth/login',
+    LOGOUT: '/api/auth/logout',
+  },
+  THEMES: {
+    LIST: '/api/themes',
+    CREATE: '/api/themes',
+    UPDATE: (id: string) => `/api/themes/${id}`,
+    DELETE: (id: string) => `/api/themes/${id}`,
+    ACTIVATE: (id: string) => `/api/themes/${id}/activate`,
+  },
+  SCHEDULE: {
+    LIST: '/api/schedule',
+    UPDATE: '/api/schedule',
+  },
+  HISTORY: {
+    LIST: '/api/history',
+  },
+} as const;

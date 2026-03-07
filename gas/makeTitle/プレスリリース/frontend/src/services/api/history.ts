@@ -1,6 +1,7 @@
-// @API_INTEGRATION: バックエンドAPI実装後にAgent 8で接続
 import type { PostHistory } from '../../types';
+import { API_PATHS } from '../../types';
+import { apiFetch } from './client';
 
 export async function fetchHistory(): Promise<PostHistory[]> {
-  throw new Error('API not implemented');
+  return apiFetch<PostHistory[]>(API_PATHS.HISTORY.LIST);
 }

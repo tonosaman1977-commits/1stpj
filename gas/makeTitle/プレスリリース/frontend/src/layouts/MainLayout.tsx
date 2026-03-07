@@ -84,7 +84,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem disabled><Typography variant="caption" color="text.secondary">{user?.email}</Typography></MenuItem>
-            <MenuItem onClick={() => { logout(); navigate('/login'); setAnchorEl(null); }}>ログアウト</MenuItem>
+            <MenuItem onClick={() => { setAnchorEl(null); logout().then(() => navigate('/login')); }}>ログアウト</MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Card, CardContent, CardActions,
   Button, IconButton, Chip, TextField, Dialog,
-  DialogTitle, DialogContent, DialogActions,
+  DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -11,30 +11,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import { MainLayout } from '../layouts/MainLayout';
 import type { PostTheme } from '../types';
-
-const INITIAL_THEMES: PostTheme[] = [
-  {
-    id: '1',
-    name: 'AIテック',
-    description: 'AI・機械学習・最新テクノロジーに関する投稿。エンジニア・研究者向けの専門的な内容を中心に発信する。',
-    isActive: true,
-    createdAt: '2026-02-01T09:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'キャリア・働き方',
-    description: 'リモートワーク、キャリア形成、生産性向上など、現代の働き方に関するトピックを投稿する。',
-    isActive: false,
-    createdAt: '2026-02-10T10:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'スタートアップ',
-    description: 'スタートアップ文化、資金調達、プロダクト開発など、起業家・投資家向けのコンテンツを発信する。',
-    isActive: false,
-    createdAt: '2026-02-20T11:00:00Z',
-  },
-];
+import { fetchThemes, createTheme, updateTheme, deleteTheme, activateTheme } from '../services/api/themes';
 
 interface FormState {
   name: string;
@@ -44,11 +21,22 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', description: '' };
 
 export function ThemesPage() {
-  const [themes, setThemes] = useState<PostTheme[]>(INITIAL_THEMES);
+  const [themes, setThemes] = useState<PostTheme[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [nameError, setNameError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = () =>
+    fetchThemes()
+      .then(setThemes)
+      .catch(err => setError(err instanceof Error ? err.message : 'テーマの取得に失敗しました'))
+      .finally(() => setLoading(false));
+
+  useEffect(() => { load(); }, []);
 
   const openCreate = () => {
     setEditingId(null);
@@ -64,9 +52,7 @@ export function ThemesPage() {
     setDialogOpen(true);
   };
 
-  const closeDialog = () => {
-    setDialogOpen(false);
-  };
+  const closeDialog = () => setDialogOpen(false);
 
   const validate = (): boolean => {
     if (!form.name.trim()) {
@@ -77,44 +63,43 @@ export function ThemesPage() {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
-
-    if (editingId === null) {
-      const newTheme: PostTheme = {
-        id: String(Date.now()),
-        name: form.name.trim(),
-        description: form.description.trim(),
-        isActive: themes.length === 0,
-        createdAt: new Date().toISOString(),
-      };
-      setThemes(prev => [...prev, newTheme]);
-    } else {
-      setThemes(prev =>
-        prev.map(t =>
-          t.id === editingId
-            ? { ...t, name: form.name.trim(), description: form.description.trim() }
-            : t
-        )
-      );
-    }
-    setDialogOpen(false);
-  };
-
-  const handleActivate = (id: string) => {
-    setThemes(prev => prev.map(t => ({ ...t, isActive: t.id === id })));
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (!confirm(`「${name}」を削除しますか？`)) return;
-    setThemes(prev => {
-      const filtered = prev.filter(t => t.id !== id);
-      const wasActive = prev.find(t => t.id === id)?.isActive ?? false;
-      if (wasActive && filtered.length > 0) {
-        return filtered.map((t, i) => ({ ...t, isActive: i === 0 }));
+    setSaving(true);
+    try {
+      const data = { name: form.name.trim(), description: form.description.trim() };
+      if (editingId === null) {
+        await createTheme(data);
+      } else {
+        await updateTheme(editingId, data);
       }
-      return filtered;
-    });
+      setDialogOpen(false);
+      setLoading(true);
+      await load();
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : '保存に失敗しました');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleActivate = async (id: string) => {
+    try {
+      await activateTheme(id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'アクティブ化に失敗しました');
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`「${name}」を削除しますか？`)) return;
+    try {
+      await deleteTheme(id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '削除に失敗しました');
+    }
   };
 
   const formatDate = (iso: string) =>
@@ -142,76 +127,86 @@ export function ThemesPage() {
           </Button>
         </Box>
 
-        {themes.length === 0 && (
-          <Card sx={{ mt: 3, textAlign: 'center', py: 6 }}>
-            <Typography color="text.secondary">テーマが登録されていません</Typography>
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={openCreate} sx={{ mt: 2 }}>
-              最初のテーマを追加
-            </Button>
-          </Card>
-        )}
+        {error && <Alert severity="error" sx={{ mt: 2, mb: 1 }}>{error}</Alert>}
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
-          {themes.map(theme => (
-            <Card
-              key={theme.id}
-              variant="outlined"
-              sx={{
-                borderColor: theme.isActive ? 'primary.main' : 'divider',
-                borderWidth: theme.isActive ? 2 : 1,
-                transition: 'border-color 0.2s',
-              }}
-            >
-              <CardContent sx={{ pb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <Typography variant="h6" fontWeight={600} color="text.primary">
-                    {theme.name}
-                  </Typography>
-                  {theme.isActive && (
-                    <Chip
-                      label="アクティブ"
-                      size="small"
-                      color="primary"
-                      icon={<CheckCircleIcon />}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  )}
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 1 }}>
-                  {theme.description || '説明なし'}
-                </Typography>
-                <Typography variant="caption" color="text.disabled">
-                  登録日: {formatDate(theme.createdAt)}
-                </Typography>
-              </CardContent>
-              <CardActions sx={{ px: 2, pb: 1.5, pt: 0, gap: 1 }}>
-                {!theme.isActive && (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<RadioButtonUncheckedIcon />}
-                    onClick={() => handleActivate(theme.id)}
-                  >
-                    アクティブにする
-                  </Button>
-                )}
-                <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
-                  <IconButton size="small" onClick={() => openEdit(theme)} aria-label="編集">
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(theme.id, theme.name)}
-                    aria-label="削除"
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </CardActions>
-            </Card>
-          ))}
-        </Box>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {themes.length === 0 && (
+              <Card sx={{ mt: 3, textAlign: 'center', py: 6 }}>
+                <Typography color="text.secondary">テーマが登録されていません</Typography>
+                <Button variant="outlined" startIcon={<AddIcon />} onClick={openCreate} sx={{ mt: 2 }}>
+                  最初のテーマを追加
+                </Button>
+              </Card>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
+              {themes.map(theme => (
+                <Card
+                  key={theme.id}
+                  variant="outlined"
+                  sx={{
+                    borderColor: theme.isActive ? 'primary.main' : 'divider',
+                    borderWidth: theme.isActive ? 2 : 1,
+                    transition: 'border-color 0.2s',
+                  }}
+                >
+                  <CardContent sx={{ pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography variant="h6" fontWeight={600} color="text.primary">
+                        {theme.name}
+                      </Typography>
+                      {theme.isActive && (
+                        <Chip
+                          label="アクティブ"
+                          size="small"
+                          color="primary"
+                          icon={<CheckCircleIcon />}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 1 }}>
+                      {theme.description || '説明なし'}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      登録日: {formatDate(theme.createdAt)}
+                    </Typography>
+                  </CardContent>
+                  <CardActions sx={{ px: 2, pb: 1.5, pt: 0, gap: 1 }}>
+                    {!theme.isActive && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RadioButtonUncheckedIcon />}
+                        onClick={() => handleActivate(theme.id)}
+                      >
+                        アクティブにする
+                      </Button>
+                    )}
+                    <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+                      <IconButton size="small" onClick={() => openEdit(theme)} aria-label="編集">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(theme.id, theme.name)}
+                        aria-label="削除"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </CardActions>
+                </Card>
+              ))}
+            </Box>
+          </>
+        )}
       </Box>
 
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
@@ -238,8 +233,13 @@ export function ThemesPage() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDialog}>キャンセル</Button>
-          <Button variant="contained" onClick={handleSave}>
+          <Button onClick={closeDialog} disabled={saving}>キャンセル</Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : null}
+          >
             {editingId === null ? '追加' : '保存'}
           </Button>
         </DialogActions>

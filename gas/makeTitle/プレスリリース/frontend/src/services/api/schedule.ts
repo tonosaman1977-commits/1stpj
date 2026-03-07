@@ -1,10 +1,14 @@
-// @API_INTEGRATION: バックエンドAPI実装後にAgent 8で接続
 import type { ScheduleTime } from '../../types';
+import { API_PATHS } from '../../types';
+import { apiFetch } from './client';
 
 export async function fetchSchedule(): Promise<ScheduleTime[]> {
-  throw new Error('API not implemented');
+  return apiFetch<ScheduleTime[]>(API_PATHS.SCHEDULE.LIST);
 }
 
 export async function updateSchedule(slots: ScheduleTime[]): Promise<ScheduleTime[]> {
-  throw new Error('API not implemented');
+  return apiFetch<ScheduleTime[]>(API_PATHS.SCHEDULE.UPDATE, {
+    method: 'PUT',
+    body: JSON.stringify({ slots }),
+  });
 }

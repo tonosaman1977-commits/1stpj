@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -18,7 +19,7 @@ def run_posting_job():
     """スケジュールに一致するユーザーの投稿を実行する。"""
     db = SessionLocal()
     try:
-        now_time = datetime.now().strftime('%H:%M')
+        now_time = datetime.now(ZoneInfo('Asia/Tokyo')).strftime('%H:%M')
         slots = (
             db.query(models.ScheduleSlot)
             .options(joinedload(models.ScheduleSlot.user).joinedload(models.User.themes))

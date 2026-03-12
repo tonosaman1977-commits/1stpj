@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,6 +8,8 @@ import auth as auth_utils
 import models
 import schemas
 from database import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/themes', tags=['themes'])
 
@@ -90,11 +93,14 @@ def activate_theme(
     )
     if not theme:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='テーマが見つかりません')
-    # Deactivate all, then activate target
-    db.query(models.PostTheme).filter(models.PostTheme.user_id == current_user.id).update(
-        {'is_active': False}
-    )
-    theme.is_active = True
-    db.commit()
-    db.refresh(theme)
+    try:
+        db.query(models.PostTheme).filter(models.PostTheme.user_id == current_user.id).update(
+            {'is_active': False}
+        )
+        theme.is_active = True
+        db.commit()
+        db.refresh(theme)
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='テーマの切り替えに失敗しました')
     return schemas.ThemeResponse.from_model(theme)

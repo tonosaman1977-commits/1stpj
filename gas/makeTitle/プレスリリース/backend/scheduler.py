@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy.orm import joinedload
 
 import models
 import services.gemini as gemini_service
@@ -20,18 +21,15 @@ def run_posting_job():
         now_time = datetime.now().strftime('%H:%M')
         slots = (
             db.query(models.ScheduleSlot)
+            .options(joinedload(models.ScheduleSlot.user).joinedload(models.User.themes))
             .filter(models.ScheduleSlot.time == now_time, models.ScheduleSlot.enabled == True)  # noqa: E712
             .all()
         )
 
         for slot in slots:
-            active_theme = (
-                db.query(models.PostTheme)
-                .filter(
-                    models.PostTheme.user_id == slot.user_id,
-                    models.PostTheme.is_active == True,  # noqa: E712
-                )
-                .first()
+            active_theme = next(
+                (t for t in slot.user.themes if t.is_active),
+                None,
             )
             if not active_theme:
                 logger.warning(f'user={slot.user_id}: アクティブなテーマがありません')

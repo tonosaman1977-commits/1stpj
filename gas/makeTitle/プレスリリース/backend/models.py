@@ -29,7 +29,7 @@ class PostTheme(Base):
     __tablename__ = 'post_themes'
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     is_active = Column(Boolean, default=False, nullable=False)
@@ -43,7 +43,7 @@ class ScheduleSlot(Base):
     __tablename__ = 'schedule_slots'
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
     time = Column(String, nullable=False)  # HH:MM
     enabled = Column(Boolean, default=True, nullable=False)
 
@@ -54,7 +54,7 @@ class PostHistory(Base):
     __tablename__ = 'post_histories'
 
     id = Column(String, primary_key=True, default=_uuid)
-    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
     theme_id = Column(String, ForeignKey('post_themes.id'), nullable=True)
     theme_name = Column(String, nullable=False)
     content = Column(Text, nullable=False)

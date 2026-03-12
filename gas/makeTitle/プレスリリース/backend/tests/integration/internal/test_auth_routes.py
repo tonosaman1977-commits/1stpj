@@ -38,3 +38,13 @@ def test_me_success(client, test_user, auth_headers):
 def test_me_unauthenticated(client):
     resp = client.get('/api/auth/me')
     assert resp.status_code == 403
+
+
+def test_delete_me_success(client, test_user, auth_headers):
+    resp = client.delete('/api/auth/me', headers=auth_headers)
+    assert resp.status_code == 204
+
+
+def test_delete_me_unauthenticated(client):
+    resp = client.delete('/api/auth/me')
+    assert resp.status_code == 403

@@ -1,7 +1,10 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 import auth as auth_utils
 import models

@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 import models
 from database import get_db
 
-SECRET_KEY = os.getenv('JWT_SECRET', 'fallback-dev-secret-key')
+SECRET_KEY = os.getenv('JWT_SECRET')
+if not SECRET_KEY:
+    raise RuntimeError('JWT_SECRET environment variable is required')
 ALGORITHM = 'HS256'
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 

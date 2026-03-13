@@ -23,6 +23,7 @@ class User(Base):
     themes = relationship('PostTheme', back_populates='user', cascade='all, delete-orphan')
     schedules = relationship('ScheduleSlot', back_populates='user', cascade='all, delete-orphan')
     histories = relationship('PostHistory', back_populates='user', cascade='all, delete-orphan')
+    sns_connections = relationship('SnsConnection', back_populates='user', cascade='all, delete-orphan')
 
 
 class PostTheme(Base):
@@ -64,3 +65,20 @@ class PostHistory(Base):
 
     user = relationship('User', back_populates='histories')
     theme = relationship('PostTheme', back_populates='histories')
+
+
+class SnsConnection(Base):
+    __tablename__ = 'sns_connections'
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
+    platform = Column(String, nullable=False)  # 'threads'
+    sns_user_id = Column(String, nullable=False)
+    access_token_encrypted = Column(Text, nullable=False)
+    token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_expired = Column(Boolean, default=False, nullable=False)
+    connected_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    user = relationship('User', back_populates='sns_connections')

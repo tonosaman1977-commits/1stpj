@@ -14,7 +14,7 @@ load_dotenv('.env.local')
 import models  # noqa: F401 - registers models with Base
 from database import Base, engine, get_db
 from limiter import limiter
-from routers import auth, history, schedule, themes
+from routers import auth, history, schedule, sns, themes, threads_auth
 from scheduler import start_scheduler, stop_scheduler
 
 
@@ -58,6 +58,8 @@ app.include_router(auth.router)
 app.include_router(themes.router)
 app.include_router(schedule.router)
 app.include_router(history.router)
+app.include_router(threads_auth.router)
+app.include_router(sns.router)
 
 
 @app.get('/health')

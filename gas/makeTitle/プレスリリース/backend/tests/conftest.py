@@ -3,6 +3,7 @@ import os
 # テスト環境フラグ（schedulerをスキップ・SQLiteをテスト用DBに向ける）
 os.environ['TESTING'] = 'true'
 os.environ['DATABASE_URL'] = 'sqlite:///./test.db'
+os.environ.setdefault('FERNET_KEY', 'THX5QkII13ZkNDrGPAF2K5V0lYrbowRwj5hwgMG69CY=')
 
 import pytest
 from fastapi.testclient import TestClient

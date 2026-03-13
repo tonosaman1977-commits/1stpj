@@ -17,7 +17,7 @@ BlueLampでの開発は以下のフローに沿って進行します：
 | **Phase 8: API統合** | [x] | プロトタイプが動くシステムへと変わります |
 | **Phase 9: E2Eテスト** | [x] | ユーザー操作をシミュレートして品質を担保します |
 | **Phase 10: 本番運用診断** | [x] | CVSS 3.1準拠の包括的診断で納品レベルを保証します |
-| **Phase 11: マルチテナント - OAuth基盤** | [ ] | Threads OAuth連携・sns_connectionsテーブル・トークン保存 |
+| **Phase 11: マルチテナント - OAuth基盤** | [x] | Threads OAuth連携・sns_connectionsテーブル・トークン保存 |
 | **Phase 12: マルチテナント - バックエンド拡張** | [ ] | 投稿ロジック動的トークン化・トークン自動リフレッシュジョブ |
 | **Phase 13: マルチテナント - フロントエンド** | [ ] | 連携ステータスUI・期限切れ通知・再連携フロー |
 | **Phase 14: デプロイメント** | [ ] | いよいよデプロイ！インターネットに公開します |
@@ -46,22 +46,22 @@ BlueLampでの開発は以下のフローに沿って進行します：
 
 | タスク | 対象 | 実装 | Unit | 内部 | 外部 | 品質 | FE統合 |
 |--------|------|:----:|:----:|:----:|:----:|:----:|:------:|
-| 1.1 | sns_connectionsテーブル追加・マイグレーション | [ ] | [ ] | [ ] | - | [ ] | - |
-| 1.2 | Fernetトークン暗号化/復号ユーティリティ | [ ] | [ ] | [ ] | - | [ ] | - |
+| 1.1 | sns_connectionsテーブル追加・マイグレーション | [x] | [x] | [x] | - | [x] | - |
+| 1.2 | Fernetトークン暗号化/復号ユーティリティ | [x] | [x] | [x] | - | [x] | - |
 
 #### スライス2-A: OAuth認証フロー（2-Bと並列実装可）
 
 | タスク | エンドポイント | メソッド | 実装 | Unit | 内部 | 外部 | 品質 | FE統合 |
 |--------|--------------|---------|:----:|:----:|:----:|:----:|:----:|:------:|
-| 2A.1 | /api/auth/threads/authorize | GET | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 2A.2 | /api/auth/threads/callback | GET | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 2A.1 | /api/auth/threads/authorize | GET | [x] | [x] | [x] | [x] | [x] | [ ] |
+| 2A.2 | /api/auth/threads/callback | GET | [x] | [x] | [x] | [x] | [x] | [ ] |
 
 #### スライス2-B: SNS連携管理（2-Aと並列実装可）
 
 | タスク | エンドポイント | メソッド | 実装 | Unit | 内部 | 外部 | 品質 | FE統合 |
 |--------|--------------|---------|:----:|:----:|:----:|:----:|:----:|:------:|
-| 2B.1 | /api/sns/status | GET | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 2B.2 | /api/sns/disconnect | DELETE | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 2B.1 | /api/sns/status | GET | [x] | [x] | [x] | [x] | [x] | [ ] |
+| 2B.2 | /api/sns/disconnect | DELETE | [x] | [x] | [x] | [x] | [x] | [ ] |
 
 #### スライス3-A: スケジューラー動的化（3-Bと並列実装可）
 
@@ -86,12 +86,12 @@ BlueLampでの開発は以下のフローに沿って進行します：
 
 | ID | 機能 | 担当Phase | 着手 | 完了 |
 |----|------|----------|------|------|
-| MT-001 | sns_connectionsテーブル追加・マイグレーション | Phase 11 | [ ] | [ ] |
-| MT-002 | GET /api/auth/threads/authorize エンドポイント | Phase 11 | [ ] | [ ] |
-| MT-003 | GET /api/auth/threads/callback エンドポイント | Phase 11 | [ ] | [ ] |
-| MT-004 | トークン暗号化/復号ユーティリティ（Fernet） | Phase 11 | [ ] | [ ] |
-| MT-005 | GET /api/sns/status（連携ステータス取得） | Phase 11 | [ ] | [ ] |
-| MT-006 | DELETE /api/sns/disconnect（連携解除） | Phase 11 | [ ] | [ ] |
+| MT-001 | sns_connectionsテーブル追加・マイグレーション | Phase 11 | [x] | [x] |
+| MT-002 | GET /api/auth/threads/authorize エンドポイント | Phase 11 | [x] | [x] |
+| MT-003 | GET /api/auth/threads/callback エンドポイント | Phase 11 | [x] | [x] |
+| MT-004 | トークン暗号化/復号ユーティリティ（Fernet） | Phase 11 | [x] | [x] |
+| MT-005 | GET /api/sns/status（連携ステータス取得） | Phase 11 | [x] | [x] |
+| MT-006 | DELETE /api/sns/disconnect（連携解除） | Phase 11 | [x] | [x] |
 | MT-007 | 投稿ロジック動的トークン取得（scheduler.py改修） | Phase 12 | [ ] | [ ] |
 | MT-008 | トークン自動リフレッシュジョブ（APScheduler） | Phase 12 | [ ] | [ ] |
 | MT-009 | 期限切れフラグ管理・通知ログ記録 | Phase 12 | [ ] | [ ] |

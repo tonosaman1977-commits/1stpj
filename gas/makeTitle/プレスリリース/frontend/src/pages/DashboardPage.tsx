@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, Chip, CircularProgress, Alert } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
+import {
+  Box, Card, CardContent, Typography, Chip, CircularProgress, Alert,
+  Button, Divider,
+} from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LabelIcon from '@mui/icons-material/Label';
+import LinkIcon from '@mui/icons-material/Link';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { MainLayout } from '../layouts/MainLayout';
 import type { PostHistory, PostTheme, ScheduleTime } from '../types';
 import { fetchHistory } from '../services/api/history';
 import { fetchThemes } from '../services/api/themes';
 import { fetchSchedule } from '../services/api/schedule';
+import { useSnsStatus } from '../hooks/useSnsStatus';
 
 function getTodayStats(history: PostHistory[]): string {
   const today = new Date().toDateString();
@@ -40,6 +48,9 @@ export function DashboardPage() {
   const [schedules, setSchedules] = useState<ScheduleTime[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [snsConnectedAlert, setSnsConnectedAlert] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { status: snsStatus, loading: snsLoading, error: snsError, connect, disconnect, reload: reloadSns } = useSnsStatus();
 
   useEffect(() => {
     Promise.all([fetchHistory(), fetchThemes(), fetchSchedule()])
@@ -47,6 +58,14 @@ export function DashboardPage() {
       .catch(err => setError(err instanceof Error ? err.message : 'データの取得に失敗しました'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('sns_connected') === '1') {
+      setSnsConnectedAlert(true);
+      reloadSns();
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, reloadSns]);
 
   const stats = loading ? [] : [
     { label: '今日の投稿', value: getTodayStats(history), icon: <CheckCircleIcon />, color: '#40c4ff' },
@@ -66,6 +85,11 @@ export function DashboardPage() {
           今日の投稿状況をご確認ください
         </Typography>
 
+        {snsConnectedAlert && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSnsConnectedAlert(false)}>
+            Threadsとの連携が完了しました
+          </Alert>
+        )}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         {loading ? (
@@ -118,6 +142,72 @@ export function DashboardPage() {
                 ))}
               </Box>
             )}
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" fontWeight={600} color="primary" gutterBottom>
+              SNS連携
+            </Typography>
+
+            {snsError && <Alert severity="error" sx={{ mb: 2 }}>{snsError}</Alert>}
+
+            {snsStatus?.is_expired && (
+              <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
+                Threadsのアクセストークンが期限切れです。再連携してください。
+              </Alert>
+            )}
+
+            <Card>
+              <CardContent>
+                {snsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ color: snsStatus?.connected ? '#00bfa5' : '#9e9e9e', display: 'flex' }}>
+                        {snsStatus?.connected ? <LinkIcon /> : <LinkOffIcon />}
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          Threads {snsStatus?.connected ? '連携中' : '未連携'}
+                        </Typography>
+                        {snsStatus?.connected && snsStatus.token_expires_at && (
+                          <Typography variant="caption" color="text.secondary">
+                            有効期限: {new Date(snsStatus.token_expires_at).toLocaleDateString('ja-JP')}
+                          </Typography>
+                        )}
+                      </Box>
+                      {snsStatus?.connected && (
+                        <Chip
+                          label={snsStatus.is_expired ? '期限切れ' : '有効'}
+                          size="small"
+                          color={snsStatus.is_expired ? 'error' : 'success'}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {snsStatus?.connected ? (
+                        <>
+                          {snsStatus.is_expired && (
+                            <Button variant="contained" size="small" onClick={connect} startIcon={<LinkIcon />}>
+                              再連携
+                            </Button>
+                          )}
+                          <Button variant="outlined" size="small" color="error" onClick={disconnect} startIcon={<LinkOffIcon />}>
+                            連携解除
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="contained" size="small" onClick={connect} startIcon={<LinkIcon />}>
+                          Threadsと連携
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </Box>

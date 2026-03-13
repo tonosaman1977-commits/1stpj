@@ -35,6 +35,14 @@ export interface PostHistory {
   errorMessage?: string;
 }
 
+export interface SnsStatus {
+  connected: boolean;
+  platform: string;
+  sns_user_id: string | null;
+  token_expires_at: string | null;
+  is_expired: boolean;
+}
+
 export const API_PATHS = {
   AUTH: {
     LOGIN: '/api/auth/login',
@@ -53,5 +61,10 @@ export const API_PATHS = {
   },
   HISTORY: {
     LIST: '/api/history',
+  },
+  SNS: {
+    STATUS: '/api/sns/status',
+    DISCONNECT: '/api/sns/disconnect',
+    AUTHORIZE_URL: '/api/auth/threads/authorize-url',
   },
 } as const;

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import auth as auth_utils
@@ -24,6 +25,30 @@ _THREADS_AUTH_URL = 'https://threads.net/oauth/authorize'
 _THREADS_TOKEN_URL = 'https://graph.threads.net/oauth/access_token'
 _THREADS_LONG_TOKEN_URL = 'https://graph.threads.net/access_token'
 _TOKEN_TTL_DAYS = 60
+
+
+class AuthorizeUrlResponse(BaseModel):
+    url: str
+
+
+@router.get('/authorize-url', response_model=AuthorizeUrlResponse)
+def authorize_url(current_user: models.User = Depends(auth_utils.get_current_user)):
+    """Threads OAuthの認可URLをJSONで返す（フロントエンド用）。"""
+    if not _APP_ID or not _REDIRECT_URI:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Threads OAuth設定が未完了です',
+        )
+    params = {
+        'client_id': _APP_ID,
+        'redirect_uri': _REDIRECT_URI,
+        'scope': 'threads_basic,threads_content_publish',
+        'response_type': 'code',
+        'state': current_user.id,
+    }
+    url = f'{_THREADS_AUTH_URL}?{urlencode(params)}'
+    logger.info('OAuth authorize-url: user_id=%s', current_user.id)
+    return AuthorizeUrlResponse(url=url)
 
 
 @router.get('/authorize')
@@ -122,4 +147,4 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     logger.info('Threads OAuth完了: user_id=%s', user.id)
 
     frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-    return RedirectResponse(url=f'{frontend_url}/?sns_connected=1', status_code=302)
+    return RedirectResponse(url=f'{frontend_url}/dashboard?sns_connected=1', status_code=302)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -69,6 +69,7 @@ class PostHistory(Base):
 
 class SnsConnection(Base):
     __tablename__ = 'sns_connections'
+    __table_args__ = (Index('ix_sns_connections_user_platform', 'user_id', 'platform'),)
 
     id = Column(String, primary_key=True, default=_uuid)
     user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)

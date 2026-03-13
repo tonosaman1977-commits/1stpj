@@ -6,14 +6,13 @@ _THREADS_REFRESH_URL = 'https://graph.threads.net/refresh_access_token'
 
 def post_to_threads(content: str, access_token: str, sns_user_id: str) -> str:
     """Threadsに投稿し、投稿IDを返す。"""
+    headers = {'Authorization': f'Bearer {access_token}'}
+
     # Step 1: メディアコンテナ作成
     create_resp = httpx.post(
         f'{THREADS_BASE_URL}/{sns_user_id}/threads',
-        params={
-            'media_type': 'TEXT',
-            'text': content,
-            'access_token': access_token,
-        },
+        params={'media_type': 'TEXT', 'text': content},
+        headers=headers,
         timeout=30,
     )
     create_resp.raise_for_status()
@@ -22,10 +21,8 @@ def post_to_threads(content: str, access_token: str, sns_user_id: str) -> str:
     # Step 2: 公開
     publish_resp = httpx.post(
         f'{THREADS_BASE_URL}/{sns_user_id}/threads_publish',
-        params={
-            'creation_id': container_id,
-            'access_token': access_token,
-        },
+        params={'creation_id': container_id},
+        headers=headers,
         timeout=30,
     )
     publish_resp.raise_for_status()

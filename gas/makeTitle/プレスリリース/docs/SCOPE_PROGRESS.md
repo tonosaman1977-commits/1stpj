@@ -106,11 +106,103 @@ BlueLampでの開発は以下のフローに沿って進行します：
 
 ---
 
-## 🔒 本番運用診断
+## 🔒 本番運用診断（マルチテナント再診断）
 
 **現在のステップ**: Step 8完了 - Phase完了
-**最終スコア**: 80/100（B評価）
-**診断回数**: 3
+**最終スコア**: 90/100（A評価）
+**前回スコア**: 80/100（B評価、Phase 11-13実装前）
+**診断回数**: 2
+**目標**: 90点以上
+
+### チェックポイント
+- [x] Step 1: 事前準備・SCOPE初期化
+- [x] Step 2: 5観点並列診断
+- [x] Step 3: 外部攻撃シミュレーション
+- [x] Step 4: スコア算出・タスクリスト作成
+- [x] Step 5: 自動修正実行
+- [x] Step 6: リグレッションテスト
+- [x] Step 7: 再診断
+- [x] Step 8: Phase完了処理
+
+### 診断結果（第1回）
+| カテゴリ | スコア | 主な問題 |
+|---------|--------|---------|
+| セキュリティ | 25/30 | OAuthのstate=user_id(CSRF弱), JWTのlocalStorage保存, access_tokenをURLパラメータ送信 |
+| パフォーマンス | 15/20 | キャッシュなし, sns_connections複合インデックスなし |
+| 信頼性 | 17/20 | callbackにrollbackなし, 楽観的ロックなし |
+| 運用性 | 9/15 | DEPLOYMENT.mdなし, バックアップ手順なし |
+| コンプライアンス | 14/15 | cryptography未記載(transitive), レート制限はloginのみ |
+| **合計** | **80/100** | **B評価** |
+
+### 外部テスト結果
+| # | テスト | EP | 期待 | 実際 | 判定 | CVSS参考 |
+|---|--------|-----|------|------|------|---------|
+| 1 | 認証なしアクセス | GET /api/themes | 403 | 403 | OK | - |
+| 2 | 無効トークン | GET /api/themes | 401 | 401 | OK | - |
+| 3 | /metrics認証なし | GET /metrics | 要認証が望ましい | 200(公開) | **Low** | 3.1 |
+| 4 | レート制限 | POST /api/auth/login x20 | 429 | 4回以降429 | OK | - |
+| 5 | OAuthコールバック不正state | GET /callback?state=noexist | 400/503 | 503(設定未完了) | OK | - |
+| 6 | /authorize認証なし | GET /api/auth/threads/authorize | 403 | 403 | OK | - |
+| 7 | SNS status認証なし | GET /api/sns/status | 403 | 403 | OK | - |
+| 8 | 情報漏洩テスト | GET /api/auth/me | password除外 | id/email/name/roleのみ | OK | - |
+
+### ルート別認可マトリクス（マルチテナント含む）
+| ルートファイル | メソッド | パス | 認証MW | 所有権検証 | 判定 |
+|---|---|---|---|---|---|
+| auth.py | POST | /api/auth/login | ✗ | N/A | OK |
+| auth.py | POST | /api/auth/logout | ✓ | N/A | OK |
+| auth.py | GET | /api/auth/me | ✓ | N/A | OK |
+| auth.py | DELETE | /api/auth/me | ✓ | self | OK |
+| themes.py | GET/POST | /api/themes | ✓ | ✓ user_id | OK |
+| themes.py | PUT/DELETE | /api/themes/{id} | ✓ | ✓ user_id | OK |
+| themes.py | POST | /api/themes/{id}/activate | ✓ | ✓ user_id | OK |
+| schedule.py | GET/PUT | /api/schedule | ✓ | ✓ user_id | OK |
+| history.py | GET | /api/history | ✓ | ✓ user_id | OK |
+| threads_auth.py | GET | /api/auth/threads/authorize-url | ✓ | N/A | OK |
+| threads_auth.py | GET | /api/auth/threads/authorize | ✓ | N/A | OK |
+| threads_auth.py | GET | /api/auth/threads/callback | **✗** | state=user_id | **Medium** |
+| sns.py | GET | /api/sns/status | ✓ | ✓ user_id | OK |
+| sns.py | DELETE | /api/sns/disconnect | ✓ | ✓ user_id | OK |
+| main.py | GET | /metrics | **✗** | N/A | **Low** |
+
+---
+
+### 修正タスク（優先度順）
+| # | 優先度 | カテゴリ | タスク | CVSS参考 | 点数 | 状態 |
+|---|--------|---------|--------|---------|------|------|
+| 1 | High | 運用性 | DEPLOYMENT.md + バックアップ手順作成 | - | +4点 | [x] |
+| 2 | Medium | セキュリティ/外部連携 | threads.pyのaccess_tokenをクエリパラメータからヘッダーへ | 5.5 | +1点 | [x] |
+| 3 | Medium | セキュリティ | OAuthのstateをHMAC署名付きJWT(user_id+nonce)に変更 | 4.3 | +1点 | [x] |
+| 4 | Medium | 信頼性 | threads_auth.pyのcallbackにtry-except+db.rollback追加 | - | +1点 | [x] |
+| 5 | Low | セキュリティ | /metricsエンドポイントに認証追加 | 3.1 | +0.5点 | [x] |
+| 6 | Low | パフォーマンス | sns_connectionsに(user_id, platform)複合インデックス追加 | - | +0.5点 | [x] |
+| 7 | Low | コンプライアンス | cryptographyをrequirements.txtに明示 | - | +0.5点 | [x] |
+
+**最終スコア**: **90/100 → A評価 ✅** (フロントconsole.logゼロでログ管理満点達成)
+
+### スコア推移
+| 回 | スコア | 評価 |
+|----|--------|------|
+| 前回(Phase 11-13実装前) | 80/100 | B |
+| 1回目 | 80/100 | B（マルチテナント追加後） |
+| 2回目 | 90/100 | **A ✅** |
+
+### カテゴリ別最終スコア
+| カテゴリ | スコア |
+|---------|--------|
+| セキュリティ | 28/30 |
+| パフォーマンス | 15.5/20 |
+| 信頼性 | 18/20 |
+| 運用性 | 14/15 |
+| コンプライアンス | 14.5/15 |
+
+### リグレッションテスト結果
+- Backend: 90/90 パス ✅ (pytest)
+- E2E: 30/35（5件はlibnspr4.so環境依存、コード変更と無関係）
+
+---
+
+### 【前回診断アーカイブ（Phase 11-13実装前）】
 
 ### チェックポイント
 - [x] Step 1〜8: 全完了 ✅

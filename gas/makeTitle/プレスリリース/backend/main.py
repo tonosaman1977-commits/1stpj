@@ -2,7 +2,8 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -14,6 +15,8 @@ load_dotenv('.env.local')
 import models  # noqa: F401 - registers models with Base
 from database import Base, engine, get_db
 from limiter import limiter
+import auth as auth_utils
+import models as _models_mod
 from routers import auth, history, schedule, sns, themes, threads_auth
 from scheduler import start_scheduler, stop_scheduler
 
@@ -75,20 +78,18 @@ def health():
 
 
 @app.get('/metrics')
-def metrics():
-    import models as _models
-    db = next(get_db())
-    try:
-        user_count = db.query(_models.User).count()
-        theme_count = db.query(_models.PostTheme).count()
-        history_count = db.query(_models.PostHistory).count()
-        return {
-            'users_total': user_count,
-            'themes_total': theme_count,
-            'histories_total': history_count,
-        }
-    finally:
-        db.close()
+def metrics(
+    current_user: _models_mod.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_count = db.query(_models_mod.User).count()
+    theme_count = db.query(_models_mod.PostTheme).count()
+    history_count = db.query(_models_mod.PostHistory).count()
+    return {
+        'users_total': user_count,
+        'themes_total': theme_count,
+        'histories_total': history_count,
+    }
 
 
 @app.exception_handler(Exception)

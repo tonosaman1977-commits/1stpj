@@ -1,11 +1,13 @@
 import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,30 @@ _THREADS_AUTH_URL = 'https://threads.net/oauth/authorize'
 _THREADS_TOKEN_URL = 'https://graph.threads.net/oauth/access_token'
 _THREADS_LONG_TOKEN_URL = 'https://graph.threads.net/access_token'
 _TOKEN_TTL_DAYS = 60
+_STATE_TTL_MINUTES = 10
+
+
+def _create_oauth_state(user_id: str) -> str:
+    """CSRF対策: user_id + nonceをJWTに署名して返す。"""
+    payload = {
+        'sub': user_id,
+        'nonce': secrets.token_hex(16),
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=_STATE_TTL_MINUTES),
+    }
+    return jwt.encode(payload, auth_utils.SECRET_KEY, algorithm=auth_utils.ALGORITHM)
+
+
+def _verify_oauth_state(state: str) -> str:
+    """stateを検証してuser_idを返す。失敗時はHTTPException。"""
+    try:
+        payload = jwt.decode(state, auth_utils.SECRET_KEY, algorithms=[auth_utils.ALGORITHM])
+        user_id = payload.get('sub')
+        if not user_id:
+            raise ValueError('subなし')
+        return user_id
+    except JWTError as e:
+        logger.warning('OAuth state検証失敗: %s', e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='不正または期限切れのstateパラメータです')
 
 
 class AuthorizeUrlResponse(BaseModel):
@@ -44,7 +70,7 @@ def authorize_url(current_user: models.User = Depends(auth_utils.get_current_use
         'redirect_uri': _REDIRECT_URI,
         'scope': 'threads_basic,threads_content_publish',
         'response_type': 'code',
-        'state': current_user.id,
+        'state': _create_oauth_state(current_user.id),
     }
     url = f'{_THREADS_AUTH_URL}?{urlencode(params)}'
     logger.info('OAuth authorize-url: user_id=%s', current_user.id)
@@ -64,7 +90,7 @@ def authorize(current_user: models.User = Depends(auth_utils.get_current_user)):
         'redirect_uri': _REDIRECT_URI,
         'scope': 'threads_basic,threads_content_publish',
         'response_type': 'code',
-        'state': current_user.id,
+        'state': _create_oauth_state(current_user.id),
     }
     url = f'{_THREADS_AUTH_URL}?{urlencode(params)}'
     logger.info('OAuth authorize redirect: user_id=%s', current_user.id)
@@ -80,7 +106,8 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
             detail='Threads OAuth設定が未完了です',
         )
 
-    user = db.query(models.User).filter(models.User.id == state).first()
+    user_id = _verify_oauth_state(state)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='不正なstateパラメータです')
 
@@ -126,25 +153,30 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
         models.SnsConnection.platform == 'threads',
     ).first()
 
-    if conn:
-        conn.access_token_encrypted = encrypted
-        conn.token_expires_at = token_expires_at
-        conn.is_expired = False
-        conn.sns_user_id = sns_user_id
-        conn.updated_at = datetime.now(timezone.utc)
-    else:
-        conn = models.SnsConnection(
-            user_id=user.id,
-            platform='threads',
-            sns_user_id=sns_user_id,
-            access_token_encrypted=encrypted,
-            token_expires_at=token_expires_at,
-            is_expired=False,
-        )
-        db.add(conn)
+    try:
+        if conn:
+            conn.access_token_encrypted = encrypted
+            conn.token_expires_at = token_expires_at
+            conn.is_expired = False
+            conn.sns_user_id = sns_user_id
+            conn.updated_at = datetime.now(timezone.utc)
+        else:
+            conn = models.SnsConnection(
+                user_id=user.id,
+                platform='threads',
+                sns_user_id=sns_user_id,
+                access_token_encrypted=encrypted,
+                token_expires_at=token_expires_at,
+                is_expired=False,
+            )
+            db.add(conn)
 
-    db.commit()
-    logger.info('Threads OAuth完了: user_id=%s', user.id)
+        db.commit()
+        logger.info('Threads OAuth完了: user_id=%s', user.id)
+    except Exception:
+        db.rollback()
+        logger.error('Threads OAuthトークン保存失敗: user_id=%s', user.id, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='トークンの保存に失敗しました')
 
     frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
     return RedirectResponse(url=f'{frontend_url}/dashboard?sns_connected=1', status_code=302)

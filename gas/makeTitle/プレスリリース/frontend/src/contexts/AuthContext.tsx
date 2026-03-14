@@ -5,6 +5,7 @@ import { apiLogin, apiLogout } from '../services/api/auth';
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setAuth: (res: { user: object; token: string }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,8 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth');
   };
 
+  const setAuth = (res: { user: object; token: string }) => {
+    const state: AuthState = { user: res.user as AuthState['user'], token: res.token, isAuthenticated: true };
+    setAuthState(state);
+    localStorage.setItem('auth', JSON.stringify(state));
+  };
+
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout }}>
+    <AuthContext.Provider value={{ ...authState, login, logout, setAuth }}>
       {children}
     </AuthContext.Provider>
   );

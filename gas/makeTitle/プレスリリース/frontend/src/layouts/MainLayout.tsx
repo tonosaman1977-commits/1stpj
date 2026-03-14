@@ -8,7 +8,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import LabelIcon from '@mui/icons-material/Label';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import HistoryIcon from '@mui/icons-material/History';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -16,9 +16,9 @@ const DRAWER_WIDTH = 220;
 
 const NAV_ITEMS = [
   { label: 'ダッシュボード', path: '/dashboard', icon: <DashboardIcon /> },
-  { label: 'テーマ管理', path: '/themes', icon: <LabelIcon /> },
-  { label: 'スケジュール', path: '/schedule', icon: <ScheduleIcon /> },
-  { label: '投稿履歴', path: '/history', icon: <HistoryIcon /> },
+  { label: 'テーマ管理',     path: '/themes',    icon: <LabelIcon /> },
+  { label: '投稿管理',       path: '/posts',     icon: <EditNoteIcon /> },
+  { label: '投稿履歴',       path: '/history',   icon: <HistoryIcon /> },
 ];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -33,7 +33,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const drawerContent = (
     <Box sx={{ height: '100%', background: '#1a237e', color: '#fff' }}>
       <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Typography variant="h6" fontWeight={700} color="#40c4ff">ThreadsBot</Typography>
+        <Typography variant="h6" fontWeight={700} color="#40c4ff">AI Agent</Typography>
       </Box>
       <List sx={{ pt: 1 }}>
         {NAV_ITEMS.map(item => (
@@ -75,7 +75,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </IconButton>
           )}
           <Typography variant="h6" fontWeight={700} color="primary" sx={{ flexGrow: 1 }}>
-            {NAV_ITEMS.find(n => n.path === location.pathname)?.label ?? 'ThreadsBot'}
+            {NAV_ITEMS.find(n => n.path === location.pathname)?.label ?? 'AI Agent'}
           </Typography>
           <IconButton onClick={e => setAnchorEl(e.currentTarget)}>
             <Avatar sx={{ width: 34, height: 34, bgcolor: '#1a237e', fontSize: 14 }}>

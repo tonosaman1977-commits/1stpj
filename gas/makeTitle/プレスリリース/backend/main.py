@@ -17,7 +17,7 @@ from database import Base, engine, get_db
 from limiter import limiter
 import auth as auth_utils
 import models as _models_mod
-from routers import auth, history, schedule, sns, themes, threads_auth
+from routers import auth, history, posts, schedule, sns, themes, threads_auth
 from scheduler import start_scheduler, stop_scheduler
 
 
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(title='Threads自動投稿API', lifespan=lifespan)
+app = FastAPI(title='AI Agent API', lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -63,6 +63,7 @@ app.include_router(schedule.router)
 app.include_router(history.router)
 app.include_router(threads_auth.router)
 app.include_router(sns.router)
+app.include_router(posts.router)
 
 
 @app.get('/health')

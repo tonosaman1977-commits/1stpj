@@ -11,11 +11,12 @@ import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { MainLayout } from '../layouts/MainLayout';
-import type { PostHistory, PostTheme, ScheduleTime } from '../types';
+import type { PostTheme } from '../types';
 import { fetchHistory } from '../services/api/history';
 import { fetchThemes } from '../services/api/themes';
-import { fetchSchedule } from '../services/api/schedule';
+import { fetchPosts, type PostQueueItem } from '../services/api/posts';
 import { useSnsStatus } from '../hooks/useSnsStatus';
+import type { PostHistory } from '../types';
 
 function getTodayStats(history: PostHistory[]): string {
   const today = new Date().toDateString();
@@ -24,18 +25,16 @@ function getTodayStats(history: PostHistory[]): string {
   return `${successful} / ${todayPosts.length}`;
 }
 
-function getNextPostTime(schedules: ScheduleTime[]): string {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const enabled = schedules
-    .filter(s => s.enabled)
-    .map(s => {
-      const [h, m] = s.time.split(':').map(Number);
-      return { time: s.time, minutes: h * 60 + m };
-    })
-    .sort((a, b) => a.minutes - b.minutes);
-  const next = enabled.find(s => s.minutes > currentMinutes);
-  return next ? next.time : (enabled.length > 0 ? `${enabled[0].time} (明日)` : 'なし');
+function getNextApprovedTime(approved: PostQueueItem[]): string {
+  const now = Date.now();
+  const upcoming = approved
+    .filter(p => p.scheduledAt && new Date(p.scheduledAt).getTime() > now)
+    .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+  if (!upcoming.length) return 'なし';
+  return new Date(upcoming[0].scheduledAt!).toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function getActiveTheme(themes: PostTheme[]): string {
@@ -45,7 +44,7 @@ function getActiveTheme(themes: PostTheme[]): string {
 export function DashboardPage() {
   const [history, setHistory] = useState<PostHistory[]>([]);
   const [themes, setThemes] = useState<PostTheme[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleTime[]>([]);
+  const [approved, setApproved] = useState<PostQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snsConnectedAlert, setSnsConnectedAlert] = useState(false);
@@ -53,8 +52,8 @@ export function DashboardPage() {
   const { status: snsStatus, loading: snsLoading, error: snsError, connect, disconnect, reload: reloadSns } = useSnsStatus();
 
   useEffect(() => {
-    Promise.all([fetchHistory(), fetchThemes(), fetchSchedule()])
-      .then(([h, t, s]) => { setHistory(h); setThemes(t); setSchedules(s); })
+    Promise.all([fetchHistory(), fetchThemes(), fetchPosts(['approved'])])
+      .then(([h, t, a]) => { setHistory(h); setThemes(t); setApproved(a); })
       .catch(err => setError(err instanceof Error ? err.message : 'データの取得に失敗しました'))
       .finally(() => setLoading(false));
   }, []);
@@ -69,7 +68,7 @@ export function DashboardPage() {
 
   const stats = loading ? [] : [
     { label: '今日の投稿', value: getTodayStats(history), icon: <CheckCircleIcon />, color: '#40c4ff' },
-    { label: '次回投稿', value: getNextPostTime(schedules), icon: <ScheduleIcon />, color: '#7c4dff' },
+    { label: '次回予約投稿', value: getNextApprovedTime(approved), icon: <ScheduleIcon />, color: '#7c4dff' },
     { label: 'アクティブテーマ', value: getActiveTheme(themes), icon: <LabelIcon />, color: '#00bfa5' },
   ];
 

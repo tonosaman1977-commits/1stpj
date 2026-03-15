@@ -15,6 +15,28 @@
     #snsList .title-item { white-space: pre-wrap; padding: 0.75rem 0; line-height: 1.7; }
     .copy-feedback { display: none; }
     .copy-feedback.show { display: inline; }
+
+    /* リファレンスカード */
+    .ref-card {
+      border: 1px dashed #ced4da;
+      border-radius: 0.375rem;
+      padding: 0.75rem;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .ref-card:hover { border-color: #0d6efd; }
+    .ref-card.filled { border-style: solid; border-color: #0d6efd; background: #f0f5ff; }
+    .ref-card .ref-label { font-size: 0.8rem; font-weight: 600; color: #0d6efd; margin-bottom: 0.2rem; }
+    .ref-card .ref-preview {
+      font-size: 0.75rem; color: #495057;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ref-card .ref-empty { font-size: 0.8rem; color: #adb5bd; }
+    .ref-badge {
+      display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.5rem;
+      border-radius: 1rem; background: #0d6efd; color: #fff; margin-left: 0.4rem;
+    }
   </style>
 </head>
 <body>
@@ -22,7 +44,53 @@
     <h1 class="h4 mb-1 fw-bold">研究タイトル生成エンジン</h1>
     <p class="text-muted small mb-4">研究概要を入力すると、学術・一般・SNS向けタイトルを15案生成します。</p>
 
-    <!-- 入力エリア -->
+    <!-- ── リファレンス管理パネル ────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <span class="fw-semibold">バズりリファレンス</span>
+          <span id="refCountBadge" class="ref-badge d-none">0 / 5</span>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" id="toggleRefPanel" type="button">
+          管理する ▾
+        </button>
+      </div>
+      <div id="refPanel" class="card-body d-none">
+        <p class="text-muted small mb-3">
+          実際にバズった投稿を最大5件登録すると、その構造・熱量をトレースして生成します。
+        </p>
+
+        <!-- リファレンス5枠グリッド -->
+        <div class="row g-2 mb-3" id="refGrid">
+          <!-- JS で生成 -->
+        </div>
+
+        <!-- 編集フォーム -->
+        <div id="refEditForm" class="d-none border rounded p-3 bg-light">
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold small" id="refEditTitle">参考1 を編集</span>
+            <button class="btn-close btn-sm" id="refEditClose" type="button"></button>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1">ラベル（任意）</label>
+            <input type="text" id="refLabelInput" class="form-control form-control-sm"
+              placeholder="例: フック型・数字で引くやつ" maxlength="30">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1">投稿本文</label>
+            <textarea id="refContentInput" class="form-control form-control-sm" rows="5"
+              placeholder="バズった投稿をそのままペーストしてください..."></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-grow-1" id="refSaveBtn" type="button">保存</button>
+            <button class="btn btn-outline-danger btn-sm" id="refDeleteBtn" type="button">削除</button>
+          </div>
+          <div id="refEditError" class="text-danger small mt-2 d-none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 入力エリア ────────────────────────────────────── -->
     <div class="mb-3">
       <label for="researchText" class="form-label fw-semibold">研究概要</label>
       <textarea
@@ -52,6 +120,9 @@
 
     <!-- 結果エリア -->
     <div id="resultsArea" class="d-none">
+      <!-- 模倣と合成モード表示 -->
+      <div id="modeLabel" class="alert alert-info py-2 small d-none mb-3" role="alert"></div>
+
       <!-- 学術向け -->
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -96,20 +167,157 @@
     (function () {
       'use strict';
 
+      const MAX_REFS = 5;
       const MARKERS = { academic: '■ 学術向け', general: '■ 一般向け', sns: '■ SNS向け' };
       const NUMERALS = ['①', '②', '③', '④', '⑤'];
 
       let currentTitles = null;
+      let references = [];   // [{label, content} | null, ...]
+      let editingIndex = -1;
 
       const el = (id) => document.getElementById(id);
 
-      // 文字数カウント
+      // ── リファレンス管理 ─────────────────────────────────
+
+      function loadReferences() {
+        google.script.run
+          .withSuccessHandler(function (refs) {
+            references = refs || [];
+            renderRefGrid();
+          })
+          .withFailureHandler(function () { /* サイレント */ })
+          .fetchReferences();
+      }
+
+      function renderRefGrid() {
+        const grid = el('refGrid');
+        grid.innerHTML = '';
+        const filled = references.filter(function (r) { return r; }).length;
+
+        // バッジ
+        const badge = el('refCountBadge');
+        if (filled > 0) {
+          badge.textContent = filled + ' / ' + MAX_REFS;
+          badge.classList.remove('d-none');
+        } else {
+          badge.classList.add('d-none');
+        }
+
+        // 生成ボタンラベル更新
+        el('btnText').textContent = filled > 0
+          ? '模倣と合成モードで生成する（参考' + filled + '件）'
+          : 'タイトルを生成する';
+
+        for (let i = 0; i < MAX_REFS; i++) {
+          const ref = references[i] || null;
+          const col = document.createElement('div');
+          col.className = 'col-6 col-md-4';
+
+          const card = document.createElement('div');
+          card.className = 'ref-card' + (ref ? ' filled' : '');
+          card.dataset.index = i;
+
+          if (ref) {
+            card.innerHTML =
+              '<div class="ref-label">参考' + (i + 1) + ' ' + escHtml(ref.label) + '</div>' +
+              '<div class="ref-preview">' + escHtml(ref.content) + '</div>';
+          } else {
+            card.innerHTML =
+              '<div class="ref-empty text-center py-1">＋ 参考' + (i + 1) + '</div>';
+          }
+
+          card.addEventListener('click', function () {
+            openRefEdit(parseInt(this.dataset.index));
+          });
+
+          col.appendChild(card);
+          grid.appendChild(col);
+        }
+      }
+
+      function openRefEdit(index) {
+        editingIndex = index;
+        const ref = references[index] || null;
+        el('refEditTitle').textContent = '参考' + (index + 1) + ' を編集';
+        el('refLabelInput').value = ref ? ref.label : '';
+        el('refContentInput').value = ref ? ref.content : '';
+        el('refDeleteBtn').classList.toggle('d-none', !ref);
+        el('refEditError').classList.add('d-none');
+        el('refEditForm').classList.remove('d-none');
+        el('refContentInput').focus();
+      }
+
+      el('refEditClose').addEventListener('click', function () {
+        el('refEditForm').classList.add('d-none');
+        editingIndex = -1;
+      });
+
+      el('refSaveBtn').addEventListener('click', function () {
+        const label = el('refLabelInput').value.trim();
+        const content = el('refContentInput').value.trim();
+        if (!content) {
+          showRefError('投稿本文を入力してください。');
+          return;
+        }
+        el('refSaveBtn').disabled = true;
+        google.script.run
+          .withSuccessHandler(function (refs) {
+            references = refs || [];
+            renderRefGrid();
+            el('refEditForm').classList.add('d-none');
+            editingIndex = -1;
+            el('refSaveBtn').disabled = false;
+          })
+          .withFailureHandler(function (err) {
+            showRefError(err.message || String(err));
+            el('refSaveBtn').disabled = false;
+          })
+          .updateReference(editingIndex, label, content);
+      });
+
+      el('refDeleteBtn').addEventListener('click', function () {
+        if (editingIndex < 0) return;
+        el('refDeleteBtn').disabled = true;
+        google.script.run
+          .withSuccessHandler(function (refs) {
+            references = refs || [];
+            renderRefGrid();
+            el('refEditForm').classList.add('d-none');
+            editingIndex = -1;
+            el('refDeleteBtn').disabled = false;
+          })
+          .withFailureHandler(function (err) {
+            showRefError(err.message || String(err));
+            el('refDeleteBtn').disabled = false;
+          })
+          .removeReference(editingIndex);
+      });
+
+      function showRefError(msg) {
+        const err = el('refEditError');
+        err.textContent = msg;
+        err.classList.remove('d-none');
+      }
+
+      // パネル開閉
+      el('toggleRefPanel').addEventListener('click', function () {
+        const panel = el('refPanel');
+        if (panel.classList.contains('d-none')) {
+          panel.classList.remove('d-none');
+          this.textContent = '閉じる ▴';
+        } else {
+          panel.classList.add('d-none');
+          this.textContent = '管理する ▾';
+        }
+      });
+
+      // ── タイトル生成 ─────────────────────────────────────
+
       el('researchText').addEventListener('input', function () {
-        el('charCount').textContent = `${this.value.length} / 20,000`;
+        el('charCount').textContent = this.value.length + ' / 20,000';
         el('validationMsg').textContent = '';
       });
 
-      // 生成ボタン
       el('generateBtn').addEventListener('click', function () {
         const text = el('researchText').value.trim();
         if (text.length < 10) {
@@ -123,32 +331,30 @@
           .generateTitles(text);
       });
 
-      // リトライボタン
       el('retryBtn').addEventListener('click', function () {
         el('errorArea').classList.add('d-none');
         el('generateBtn').click();
       });
 
-      // カテゴリ別コピー
+      // コピー
       el('copyAcademic').addEventListener('click', function () {
         if (!currentTitles) return;
         navigator.clipboard.writeText(formatCategory('academic', currentTitles.academic))
-          .then(() => showFeedback(this));
+          .then(function () { showFeedback(el('copyAcademic')); });
       });
 
       el('copyGeneral').addEventListener('click', function () {
         if (!currentTitles) return;
         navigator.clipboard.writeText(formatCategory('general', currentTitles.general))
-          .then(() => showFeedback(this));
+          .then(function () { showFeedback(el('copyGeneral')); });
       });
 
       el('copySns').addEventListener('click', function () {
         if (!currentTitles) return;
         navigator.clipboard.writeText(formatCategory('sns', currentTitles.sns))
-          .then(() => showFeedback(this));
+          .then(function () { showFeedback(el('copySns')); });
       });
 
-      // 全一括コピー
       el('copyAll').addEventListener('click', function () {
         if (!currentTitles) return;
         const all = [
@@ -156,7 +362,7 @@
           formatCategory('general', currentTitles.general),
           formatCategory('sns', currentTitles.sns),
         ].join('\n\n');
-        navigator.clipboard.writeText(all).then(() => showFeedback(this));
+        navigator.clipboard.writeText(all).then(function () { showFeedback(el('copyAll')); });
       });
 
       function startLoading() {
@@ -178,6 +384,16 @@
         renderList('academicList', titles.academic);
         renderList('generalList', titles.general);
         renderList('snsList', titles.sns);
+
+        const filled = references.filter(function (r) { return r; }).length;
+        const modeLabel = el('modeLabel');
+        if (filled > 0) {
+          modeLabel.textContent = '🎯 模倣と合成モード（参考' + filled + '件のリファレンスを使用して生成しました）';
+          modeLabel.classList.remove('d-none');
+        } else {
+          modeLabel.classList.add('d-none');
+        }
+
         el('resultsArea').classList.remove('d-none');
       }
 
@@ -193,7 +409,7 @@
         items.forEach(function (title, i) {
           const li = document.createElement('li');
           li.className = 'title-item';
-          li.textContent = `${NUMERALS[i] || (i + 1) + '.'} ${title}`;
+          li.textContent = (NUMERALS[i] || (i + 1) + '.') + ' ' + title;
           list.appendChild(li);
         });
       }
@@ -201,15 +417,28 @@
       function formatCategory(key, items) {
         const header = MARKERS[key];
         const sep = key === 'sns' ? '\n\n' : '\n';
-        return header + '\n' + items.map((t, i) => `${NUMERALS[i] || (i + 1) + '.'} ${t}`).join(sep);
+        return header + '\n' + items.map(function (t, i) {
+          return (NUMERALS[i] || (i + 1) + '.') + ' ' + t;
+        }).join(sep);
       }
 
       function showFeedback(btn) {
         const feedback = btn.querySelector('.copy-feedback');
         if (!feedback) return;
         feedback.classList.add('show');
-        setTimeout(() => feedback.classList.remove('show'), 1500);
+        setTimeout(function () { feedback.classList.remove('show'); }, 1500);
       }
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // 初期ロード
+      loadReferences();
     })();
   </script>
 </body>

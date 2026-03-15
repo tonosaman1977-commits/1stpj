@@ -12,6 +12,7 @@
     body { background-color: #f8f9fa; }
     .title-item { padding: 0.4rem 0; border-bottom: 1px solid #e9ecef; }
     .title-item:last-child { border-bottom: none; }
+    #snsList .title-item { white-space: pre-wrap; padding: 0.75rem 0; line-height: 1.7; }
     .copy-feedback { display: none; }
     .copy-feedback.show { display: inline; }
   </style>
@@ -76,7 +77,7 @@
       <!-- SNS向け -->
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span class="fw-semibold">SNSタイトル</span>
+          <span class="fw-semibold">SNS投稿文</span>
           <button class="btn btn-outline-secondary btn-sm" id="copySns" type="button">
             コピー <span class="copy-feedback text-success ms-1">&#10003;</span>
           </button>
@@ -199,7 +200,8 @@
 
       function formatCategory(key, items) {
         const header = MARKERS[key];
-        return header + '\n' + items.map((t, i) => `${NUMERALS[i] || (i + 1) + '.'} ${t}`).join('\n');
+        const sep = key === 'sns' ? '\n\n' : '\n';
+        return header + '\n' + items.map((t, i) => `${NUMERALS[i] || (i + 1) + '.'} ${t}`).join(sep);
       }
 
       function showFeedback(btn) {

@@ -2,7 +2,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'user';
+  role: 'user' | 'admin';
+  isActive: boolean;
+  lastLoginAt: string | null;
 }
 
 export interface AuthState {
@@ -43,6 +45,13 @@ export interface SnsStatus {
   is_expired: boolean;
 }
 
+export interface BuzzReference {
+  id: string;
+  slotIndex: number;
+  label: string;
+  content: string;
+}
+
 export const API_PATHS = {
   AUTH: {
     LOGIN: '/api/auth/login',
@@ -61,6 +70,11 @@ export const API_PATHS = {
   },
   HISTORY: {
     LIST: '/api/history',
+  },
+  REFERENCES: {
+    LIST: '/api/references',
+    UPSERT: '/api/references',
+    DELETE: (slot: number) => `/api/references/${slot}`,
   },
   SNS: {
     STATUS: '/api/sns/status',

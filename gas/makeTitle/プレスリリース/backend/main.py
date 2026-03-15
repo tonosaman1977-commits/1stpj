@@ -17,7 +17,7 @@ from database import Base, engine, get_db
 from limiter import limiter
 import auth as auth_utils
 import models as _models_mod
-from routers import auth, history, posts, schedule, sns, themes, threads_auth
+from routers import auth, history, posts, references, schedule, sns, themes, threads_auth
 from scheduler import start_scheduler, stop_scheduler
 
 
@@ -53,7 +53,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allow_headers=['Authorization', 'Content-Type'],
 )
 
@@ -64,6 +64,7 @@ app.include_router(history.router)
 app.include_router(threads_auth.router)
 app.include_router(sns.router)
 app.include_router(posts.router)
+app.include_router(references.router)
 
 
 @app.get('/health')

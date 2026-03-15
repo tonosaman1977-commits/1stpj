@@ -1,21 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Button, Card, CardContent, Chip, CircularProgress,
+  Box, Button, Card, CardContent, Chip, CircularProgress, Collapse,
   Dialog, DialogActions, DialogContent, DialogTitle,
   Alert, Snackbar, Tab, Tabs, TextField, Typography,
+  IconButton, Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { MainLayout } from '../layouts/MainLayout';
 import {
   fetchPosts, generateDraft, createDraft, editPost, approvePost, cancelPost,
   type PostQueueItem,
 } from '../services/api/posts';
 import { fetchThemes } from '../services/api/themes';
-import type { PostTheme } from '../types';
+import { fetchReferences, upsertReference, deleteReference } from '../services/api/references';
+import type { PostTheme, BuzzReference } from '../types';
 
 const STATUS_LABEL: Record<string, { label: string; color: 'default' | 'warning' | 'success' | 'error' | 'info' }> = {
   draft:     { label: '下書き',   color: 'default' },
@@ -42,7 +47,7 @@ export function PostsPage() {
   const [tab, setTab] = useState(0);
   const [posts, setPosts] = useState<PostQueueItem[]>([]);
   const [themes, setThemes] = useState<PostTheme[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);   // 初回のみtrue
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -63,14 +68,22 @@ export function PostsPage() {
   const [scheduledAt, setScheduledAt] = useState('');
   const [approving, setApproving] = useState(false);
 
+  // バズりリファレンス
+  const [references, setReferences] = useState<BuzzReference[]>([]);
+  const [refPanelOpen, setRefPanelOpen] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<number | null>(null);
+  const [refLabel, setRefLabel] = useState('');
+  const [refContent, setRefContent] = useState('');
+  const [refSaving, setRefSaving] = useState(false);
+
   const tabStatuses = [
     ['draft'],
     ['approved'],
     ['posted', 'failed', 'cancelled'],
   ];
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [ps, ts] = await Promise.all([
         fetchPosts(tabStatuses.flat()),
@@ -81,15 +94,19 @@ export function PostsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : '読み込みに失敗しました');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // 自動生成された下書きを30秒ごとにポーリング（要件1: AI Agent自動連携）
   useEffect(() => {
-    const id = setInterval(() => { load(); }, 30_000);
+    fetchReferences().then(setReferences).catch(() => {});
+  }, []);
+
+  // AI自動生成された下書きを30秒ごとにサイレント取得（UIをブロックしない）
+  useEffect(() => {
+    const id = setInterval(() => { load(true); }, 30_000);
     return () => clearInterval(id);
   }, [load]);
 
@@ -112,7 +129,7 @@ export function PostsPage() {
       setSuccess('下書きを生成しました。内容を確認してから承認してください');
       setCreateOpen(false);
       setSelectedThemeId('');
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI生成に失敗しました');
     } finally {
@@ -129,7 +146,7 @@ export function PostsPage() {
       setSuccess('下書きを保存しました');
       setCreateOpen(false);
       setManualContent('');
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存に失敗しました');
     } finally {
@@ -145,7 +162,7 @@ export function PostsPage() {
       await editPost(editTarget.id, editContent);
       setSuccess('内容を更新しました');
       setEditTarget(null);
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '更新に失敗しました');
     } finally {
@@ -163,7 +180,7 @@ export function PostsPage() {
       setApproveTarget(null);
       setScheduledAt('');
       setTab(1);
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '承認に失敗しました');
     } finally {
@@ -176,10 +193,44 @@ export function PostsPage() {
     try {
       await cancelPost(post.id);
       setSuccess(post.status === 'draft' ? '下書きを削除しました' : '予約を取り消しました');
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : '操作に失敗しました');
     }
+  };
+
+  const handleRefSave = async () => {
+    if (editingSlot === null || !refContent.trim()) return;
+    setRefSaving(true);
+    try {
+      const saved = await upsertReference(editingSlot, refLabel.trim(), refContent.trim());
+      setReferences(prev => {
+        const next = prev.filter(r => r.slotIndex !== editingSlot);
+        return [...next, saved].sort((a, b) => a.slotIndex - b.slotIndex);
+      });
+      setEditingSlot(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '保存に失敗しました');
+    } finally {
+      setRefSaving(false);
+    }
+  };
+
+  const handleRefDelete = async (slotIndex: number) => {
+    try {
+      await deleteReference(slotIndex);
+      setReferences(prev => prev.filter(r => r.slotIndex !== slotIndex));
+      setEditingSlot(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '削除に失敗しました');
+    }
+  };
+
+  const openRefEdit = (slot: number) => {
+    const ref = references.find(r => r.slotIndex === slot);
+    setRefLabel(ref?.label ?? '');
+    setRefContent(ref?.content ?? '');
+    setEditingSlot(slot);
   };
 
   const minDateTime = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
@@ -200,6 +251,118 @@ export function PostsPage() {
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+
+        {/* ── バズりリファレンス 5枠グリッド ── */}
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <Box
+            sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+            onClick={() => setRefPanelOpen(o => !o)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" fontWeight={600}>バズりリファレンス</Typography>
+              {references.length > 0 && (
+                <Chip label={`${references.length} / 5`} size="small" color="primary" />
+              )}
+            </Box>
+            <IconButton size="small">{refPanelOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+          </Box>
+          <Collapse in={refPanelOpen}>
+            <Box sx={{ px: 2, pb: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                バズったThreads投稿を最大5件登録すると、AI生成時にその構造・熱量をトレースして生成します。
+              </Typography>
+
+              {/* 5枠グリッド */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 2 }}>
+                {[0, 1, 2, 3, 4].map(slot => {
+                  const ref = references.find(r => r.slotIndex === slot);
+                  return (
+                    <Box
+                      key={slot}
+                      onClick={() => openRefEdit(slot)}
+                      sx={{
+                        border: ref ? '1px solid' : '1px dashed',
+                        borderColor: ref ? 'primary.main' : 'divider',
+                        borderRadius: 1,
+                        p: 1,
+                        minHeight: 64,
+                        cursor: 'pointer',
+                        bgcolor: ref ? 'primary.50' : 'background.paper',
+                        '&:hover': { borderColor: 'primary.main' },
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      {ref ? (
+                        <>
+                          <Typography variant="caption" color="primary" fontWeight={700} sx={{ display: 'block' }}>
+                            参考{slot + 1} {ref.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{
+                            display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {ref.content}
+                          </Typography>
+                        </>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'center', pt: 1.5 }}>
+                          ＋ 参考{slot + 1}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+
+              {/* インライン編集フォーム */}
+              {editingSlot !== null && (
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, bgcolor: 'grey.50' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1.5 }}>参考{editingSlot + 1} を編集</Typography>
+                  <TextField
+                    label="ラベル（任意）"
+                    size="small"
+                    fullWidth
+                    value={refLabel}
+                    onChange={e => setRefLabel(e.target.value)}
+                    placeholder="例: 数字フック型・共感ストーリー型"
+                    inputProps={{ maxLength: 30 }}
+                    sx={{ mb: 1.5 }}
+                  />
+                  <TextField
+                    label="投稿本文"
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={refContent}
+                    onChange={e => setRefContent(e.target.value)}
+                    placeholder="バズったThreads投稿をそのままペーストしてください..."
+                    sx={{ mb: 1.5 }}
+                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={handleRefSave}
+                      disabled={!refContent.trim() || refSaving}
+                      startIcon={refSaving ? <CircularProgress size={14} /> : null}
+                      sx={{ flex: 1 }}
+                    >
+                      {refSaving ? '保存中...' : '保存'}
+                    </Button>
+                    {references.find(r => r.slotIndex === editingSlot) && (
+                      <Tooltip title="削除">
+                        <IconButton size="small" color="error" onClick={() => handleRefDelete(editingSlot)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Button size="small" onClick={() => setEditingSlot(null)}>閉じる</Button>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          </Collapse>
+        </Card>
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
           <Tab label={`下書き (${posts.filter(p => p.status === 'draft').length})`} />

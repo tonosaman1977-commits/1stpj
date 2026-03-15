@@ -113,3 +113,20 @@ class PostQueue(Base):
 
     user = relationship('User', back_populates='post_queue')
     theme = relationship('PostTheme')
+
+
+class BuzzReference(Base):
+    """バズりリファレンス投稿（ユーザーごとに最大5件）。"""
+    __tablename__ = 'buzz_references'
+    __table_args__ = (Index('ix_buzz_references_user_slot', 'user_id', 'slot_index'),)
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False, index=True)
+    slot_index = Column(String, nullable=False)  # '0'〜'4'
+    label = Column(String, nullable=False, default='')
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    user = relationship('User')

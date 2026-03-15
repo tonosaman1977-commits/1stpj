@@ -6,6 +6,17 @@ from pydantic import BaseModel, EmailStr, field_validator
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+class UpdateProfileRequest(BaseModel):
+    name: str
+
+    @field_validator('name')
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('表示名は必須です')
+        return v.strip()
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -36,8 +47,22 @@ class UserResponse(BaseModel):
     email: str
     name: str
     role: str
+    isActive: bool = True
+    lastLoginAt: Optional[datetime] = None
 
     model_config = {'from_attributes': True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        data = {
+            'id': obj.id,
+            'email': obj.email,
+            'name': obj.name,
+            'role': obj.role,
+            'isActive': getattr(obj, 'is_active', True),
+            'lastLoginAt': getattr(obj, 'last_login_at', None),
+        }
+        return cls(**data)
 
 
 class LoginResponse(BaseModel):
@@ -190,3 +215,41 @@ class PostEditRequest(BaseModel):
 class PostApproveRequest(BaseModel):
     """承認 + 投稿日時の指定"""
     scheduledAt: datetime
+
+
+# ── BuzzReference ──────────────────────────────────────────────────────────────
+
+class ReferenceUpsertRequest(BaseModel):
+    slotIndex: int
+    label: str = ''
+    content: str
+
+    @field_validator('slotIndex')
+    @classmethod
+    def slot_in_range(cls, v: int) -> int:
+        if v < 0 or v > 4:
+            raise ValueError('slotIndex は 0〜4 で指定してください')
+        return v
+
+    @field_validator('content')
+    @classmethod
+    def content_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('本文は必須です')
+        return v.strip()
+
+
+class ReferenceResponse(BaseModel):
+    id: str
+    slotIndex: int
+    label: str
+    content: str
+
+    @classmethod
+    def from_model(cls, obj) -> 'ReferenceResponse':
+        return cls(
+            id=obj.id,
+            slotIndex=int(obj.slot_index),
+            label=obj.label or '',
+            content=obj.content,
+        )

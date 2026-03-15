@@ -65,8 +65,13 @@ def generate_draft(
     if not theme:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='テーマが見つかりません')
 
+    references = db.query(models.BuzzReference).filter(
+        models.BuzzReference.user_id == current_user.id,
+    ).order_by(models.BuzzReference.slot_index.asc()).all()
+    ref_dicts = [{'label': r.label, 'content': r.content} for r in references]
+
     try:
-        content = gemini_service.generate_post_content(theme.name, theme.description)
+        content = gemini_service.generate_post_content(theme.name, theme.description, ref_dicts)
     except Exception as e:
         logger.error('AI生成失敗: %s', e, exc_info=True)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail='AI生成に失敗しました。再試行してください')
